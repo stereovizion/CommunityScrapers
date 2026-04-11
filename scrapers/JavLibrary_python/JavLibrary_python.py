@@ -2,6 +2,7 @@
 import base64
 import json
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -493,6 +494,15 @@ class ResponseHTML:
     status_code = 0
     url = ""
 
+def get_chrome_version():
+    try:
+        result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True)
+        version = result.stdout.strip().split()[-1]
+        return version
+    except Exception as e:
+        log.warning(f"Failed to get Chrome version: {e}")
+        return None
+
 def interactive_captcha_solve(url):
     """
     Opens a browser for interactive captcha solving.
@@ -512,8 +522,14 @@ def interactive_captcha_solve(url):
 
 
         try:
-            service = Service(ChromeDriverManager().install())
-            driver = uc.Chrome(service=service)
+            chrome_version = get_chrome_version()
+            log.debug(f"Chrome version: {chrome_version}")
+            if chrome_version:
+                service = Service(ChromeDriverManager(driver_version=chrome_version).install())
+            else:
+                service = Service(ChromeDriverManager().install())
+            options = uc.ChromeOptions()
+            driver = uc.Chrome(service=service, options=options, user_data_dir="/tmp/javlib_chrome_profile")
         except Exception as e:
             log.warning(f"Failed to launch ChromeDriver: {e}")
             return None
@@ -1059,6 +1075,7 @@ def th_imageto_base64(imageurl, typevar):
 
 log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
 FRAGMENT = json.loads(sys.stdin.read())
+log.debug(f"[DEBUG] FRAGMENT: {FRAGMENT}")
 # FRAGMENT = json.loads(r'''{
 #   "name": "LULU-424",
 #   "url": "https://www.javlibrary.com/en/javme3j5ru.html"
