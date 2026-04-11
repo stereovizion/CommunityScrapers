@@ -112,6 +112,9 @@ JAV_SEARCH_HTML = None
 JAV_MAIN_HTML = None
 PROTECTION_CLOUDFLARE = False
 
+# scraped output to be sent back to stash
+scrape = {}
+
 # Flaresolverr
 FLARESOLVERR_ENABLED = False
 FLARESOLVERR_URL = "http://localhost:8191/v1"
@@ -805,6 +808,48 @@ def cleanup_title(title):
         log.info(f"Found match and using new clean title: {title}")
     return title
 
+# cleanup filename by retaining the studio code for the video.
+# A studio code consists of some letters (e.g 3-4 letters) followed by a sequence number (e.g 3 digits),
+# and is at the beginning of the filename. The rest of the filename is removed.
+# Sometimes the letters may be concatenated with the numbers:
+# e.g. from ajvr00244-3-02.mp4 to AJVR-244
+# Sometimes the letters and sequence number are separated by a - or _ character:
+# e.g. from VRKM-1719_C-3.mp4 to VRKM-1719
+def cleanup_filename(filename):
+    if filename == None:
+        return filename
+    log.info(f"Starting filename cleanup for: {filename}")
+    studio = ''
+    seq_nr = ''
+    remaining_parts = []
+    # split filename
+    filename = os.path.splitext(filename)[0]
+    # split filename by - , _ or space character
+    parts = re.split(r'[-_ ]', filename)
+    # check if first part contains both studio prefix and sequence number and extract them
+    combomatch = re.match(r'([A-Za-z]+)(\d+)', parts[0])
+    if combomatch:
+        studio = combomatch.group(1)
+        seq_nr = combomatch.group(2)
+        remaining_parts = parts[1:]
+    else:
+        # if not, assume first part is studio and second part is sequence number
+        if len(parts) >= 2:
+            studio = parts[0]
+            seq_nr = parts[1]
+            remaining_parts = parts[2:]
+    if studio == '' or seq_nr == '':
+        log.warning(f"Could not extract studio code from filename: {filename}")
+        return filename
+
+    # code = letters + "-" + numbers
+    code = f"{studio.upper()}-{seq_nr.lstrip('0')}"
+    log.info(f"Resulting studio code: {code}")
+    scrape['title'] = f"{code} {' '.join(remaining_parts)}"
+    log.info(f"Resulting title: {scrape['title']}")
+    # scrape['code'] = code
+    return code
+
 def cleanup_details(details):
     """
     Remove common Japanese prefixes from details.
@@ -1093,7 +1138,8 @@ SCENE_URL = FRAGMENT.get("url")
 
 if FRAGMENT.get("title"):
     SCENE_TITLE = FRAGMENT["title"]
-    SCENE_TITLE = cleanup_title(SCENE_TITLE)
+    # when all fields are empty, stash passes on the filename as title
+    SCENE_TITLE = cleanup_filename(SCENE_TITLE)
 else:
     SCENE_TITLE = None
 
@@ -1262,12 +1308,11 @@ if JAV_MAIN_HTML is None:
 
 log.debug('[JAV] {}'.format(jav_result))
 
-# Time to scrape all data
-scrape = {}
-
 # DVD code
 scrape['code'] = next(iter(jav_result.get('code', [])))
-scrape['title'] = jav_result.get('title')
+# when using SCENE_TITLE (filename when all fields are empty), the title has already been set when parsing the filename
+if 'title' not in scrape:
+    scrape['title'] = jav_result.get('title')
 scrape['date'] = next(iter(jav_result.get('date', [])))
 scrape['director'] = jav_result.get('director') or None
 scrape['url'] = jav_result.get('url')
