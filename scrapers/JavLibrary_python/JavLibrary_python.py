@@ -5,7 +5,13 @@ import re
 import sys
 import threading
 import time
+# import webbrowser
 from urllib.parse import urlparse
+
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
+
+import undetected_chromedriver as uc
 
 try:
     from py_common import log
@@ -31,6 +37,17 @@ except ModuleNotFoundError:
      file=sys.stderr)
     sys.exit()
 
+try:
+    import selenium
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    SELENIUM_AVAILABLE = True
+except ModuleNotFoundError:
+    SELENIUM_AVAILABLE = False
+    log.debug("Selenium not available. Install it for interactive captcha solving: pip install selenium")
+
 
 # GLOBAL VAR ######
 JAV_DOMAIN = "Check"
@@ -44,6 +61,10 @@ PROTECTION_CLOUDFLARE = False
 FLARESOLVERR_ENABLED = False
 FLARESOLVERR_URL = "http://localhost:8191/v1"
 FLARESOLVERR_TIMEOUT_MAX = 60000
+
+# Interactive Captcha Solving
+INTERACTIVE_CAPTCHA = True  # Set to False to disable interactive captcha solving
+CAPTCHA_TIMEOUT = 300  # 5 minutes to solve captcha
 
 JAV_HEADERS = {
     "User-Agent":
@@ -418,6 +439,144 @@ class ResponseHTML:
     status_code = 0
     url = ""
 
+def interactive_captcha_solve(url):
+    """
+    Opens a browser for interactive captcha solving.
+
+    Args:
+        url: The URL that requires captcha solving
+
+    Returns:
+        cookies: Session cookies after solving, or None if timeout/error
+    """
+    if not INTERACTIVE_CAPTCHA or not SELENIUM_AVAILABLE:
+        return None
+
+    try:
+        log.info(f"Opening browser for interactive captcha solving at: {url}")
+
+
+        try:
+            service = Service(ChromeDriverManager().install())
+            driver = uc.Chrome(service=service)
+        except Exception as e:
+            log.warning(f"Failed to launch ChromeDriver: {e}")
+            return None
+        # Create a Chrome WebDriver
+        # options = webdriver.ChromeOptions()
+        # driver = webdriver.Chrome('/home/matthias/programs/chromedriver-linux64/chromedriver')
+        driver.get(url)
+
+        log.info("Browser window opened. Please solve the captcha manually.")
+        log.info(f"Waiting for {CAPTCHA_TIMEOUT} seconds for captcha to be solved...")
+
+        # Wait for the page to change (captcha solved)
+        # Check if we're no longer on a captcha/challenge page
+        try:
+            WebDriverWait(driver, CAPTCHA_TIMEOUT).until(
+                lambda d: is_cloudflare_challenge_solved(d)
+            )
+            log.info("Captcha solved! Extracting cookies...")
+        except Exception as e:
+            log.warning(f"Timeout waiting for captcha solution: {e}")
+            driver.quit()
+            return None
+
+        # Wait a bit for page to fully load after captcha solve
+        time.sleep(2)
+
+        # Extract cookies after solving
+        cookies_list = driver.get_cookies()
+        cookies_dict = {cookie['name']: cookie['value'] for cookie in cookies_list}
+
+        # Get the current page content
+        page_content = driver.page_source
+        current_url = driver.current_url
+
+        driver.quit()
+
+        return {
+            'cookies': cookies_dict,
+            'content': page_content,
+            'url': current_url
+        }
+
+    except Exception as e:
+        log.error(f"Error during interactive captcha solving: {e}")
+        try:
+            driver.quit()
+        except:
+            pass
+        return None
+
+
+def is_cloudflare_challenge_solved(driver):
+    """
+    Check if Cloudflare challenge has been solved.
+    Returns True if challenge is gone, False otherwise.
+    """
+    try:
+        # # Method 1: Check for Cloudflare challenge container
+        # try:
+        #     # Look for the challenge iframe or container
+        #     challenge_elements = driver.find_elements(By.ID, "challenge-form")
+        #     if challenge_elements:
+        #         log.debug("Challenge form still present")
+        #         return False
+        # except:
+        #     pass
+        #
+        # # Method 2: Check for the Cloudflare "checking browser" message
+        # try:
+        #     checking = driver.find_elements(By.XPATH, "//*[contains(text(), 'Checking your browser')]")
+        #     if checking:
+        #         log.debug("Browser check still in progress")
+        #         return False
+        # except:
+        #     pass
+
+        # Method 3: Check for cf_clearance cookie (set after successful challenge)
+        try:
+            cookies = driver.get_cookies()
+            cookie_names = [c['name'] for c in cookies]
+            if 'cf_clearance' in cookie_names:
+                log.debug("cf_clearance cookie found - challenge solved!")
+                return True
+        except:
+            pass
+
+        # # Method 4: Check page title/URL changed
+        # try:
+        #     # If we're past the challenge, we shouldn't be on a /challenge page
+        #     if '/challenge' not in driver.current_url.lower():
+        #         log.debug(f"URL changed to: {driver.current_url}")
+        #         return True
+        # except:
+        #     pass
+        #
+        # # Method 5: Check for common Cloudflare challenge HTML elements
+        # try:
+        #     # These elements are present during challenge
+        #     challenge_indicators = [
+        #         "cf-challenge",
+        #         "cf-chl-banner",
+        #         "challenge-error-text"
+        #     ]
+        #     page_source = driver.page_source.lower()
+        #     has_challenge = any(indicator in page_source for indicator in challenge_indicators)
+        #
+        #     if not has_challenge:
+        #         log.debug("No challenge indicators found in page source")
+        #         return True
+        # except:
+        #     pass
+        #
+        # return False
+
+    except Exception as e:
+        log.debug(f"Error checking challenge status: {e}")
+        return False
+
 def bypass_protection(url, retries=4):
     url_domain = re.sub(r"www\.|\.com", "", urlparse(url).netloc)
     log.debug("=== Checking Status of Javlib site ===")
@@ -430,7 +589,7 @@ def bypass_protection(url, retries=4):
             headers = {"Content-Type": "application/json"}
             data = {
                 "cmd": "request.get",
-                "url": url_n,""
+                "url": url_n,
                 "session": "2",
                 "session_ttl_minutes": 120,
                 "maxTimeout": FLARESOLVERR_TIMEOUT_MAX,
@@ -450,23 +609,36 @@ def bypass_protection(url, retries=4):
 
             #log.info(f"Flaresolverr response html: {response_html}")
         else:
-            log.info(
-                    f"[{site}] Using this site for scraping ({response_html.status_code})"
-                )
-            log.debug("======================================")
-            return site, response_html
+            # Try regular request first
             response = requests.get(url_n, headers=JAV_HEADERS, timeout=10)
-            response_html.content = response.content
-            response_html.html = response.text
-            response_html.status_code = response.status_code
-            response_html.url = response.url
+
+            # Check if we got a captcha challenge
+            if response.status_code in (403, 503) or "captcha" in response.text.lower() or "challenge" in response.text.lower():
+                log.warning(f"Captcha/Challenge detected. Attempting interactive solve...")
+                captcha_result = interactive_captcha_solve(url_n)
+
+                if captcha_result:
+                    response_html.content = captcha_result['content'].encode('utf-8')
+                    response_html.html = captcha_result['content']
+                    response_html.status_code = 200
+                    response_html.url = captcha_result['url']
+                else:
+                    log.error("Interactive captcha solving failed or timed out")
+                    return None, None
+            else:
+                response_html.content = response.content
+                response_html.html = response.text
+                response_html.status_code = response.status_code
+                response_html.url = response.url
+                return site, response_html
+
     except Exception as exc_req:
         log.warning(f"Exception error {exc_req} while checking protection for {site}")
         if retries == 4:
             retries = retries -1
             log.warning(f"Retrying once normally after 7s delay [retries left: {retries}] for site: {site}")
             time.sleep(7.2)
-            bypass_protection(url_n,retries)
+            return bypass_protection(url_n, retries)
         else:
             return None, None
     if response_html.url == "https://www.javlib.com/maintenance.html":
@@ -753,6 +925,10 @@ def th_imageto_base64(imageurl, typevar):
 
 log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
 FRAGMENT = json.loads(sys.stdin.read())
+# FRAGMENT = json.loads(r'''{
+#   "name": "LULU-424",
+#   "url": "https://www.javlibrary.com/en/javme3j5ru.html"
+# }''')
 
 log.debug("received input: {}".format(FRAGMENT))
 
