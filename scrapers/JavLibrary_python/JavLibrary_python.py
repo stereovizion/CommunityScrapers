@@ -904,6 +904,16 @@ def cleanup_details2(details):
     # Matches: 【anything】 repeated one or more times
     cleaned_details = re.sub(r'^(【[^】]*】\s*)+', '', details).strip()
 
+    # other more specific prefixes to remove
+    prefixes_to_remove = [
+        r'8KVR\s*',
+        r'8K\s*',
+    ]
+    for prefix in prefixes_to_remove:
+        if re.search(prefix, cleaned_details):
+            cleaned_details = re.sub(f'^{prefix}', '', cleaned_details).strip()
+            log.debug(f"Removed prefix matching: {prefix}")
+
     # Remove any leading/trailing whitespace
     cleaned_details = cleaned_details.strip()
 
