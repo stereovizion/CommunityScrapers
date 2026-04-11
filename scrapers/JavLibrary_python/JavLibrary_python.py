@@ -789,6 +789,70 @@ def cleanup_title(title):
         log.info(f"Found match and using new clean title: {title}")
     return title
 
+def cleanup_details(details):
+    """
+    Remove common Japanese prefixes from details.
+
+    Examples:
+        "【VR】 Some title" -> "Some title"
+        "【8K】 Some title" -> "Some title"
+        "【4K】【VR】 Some title" -> "Some title"
+    """
+    if details is None:
+        return details
+
+    log.info(f"Starting details cleanup for: {details}")
+
+    # List of prefixes to remove (with optional spaces/brackets)
+    prefixes_to_remove = [
+        r'【VR】\s*',
+        r'【8K】\s*',
+        r'【4K】\s*',
+        r'【HD】\s*',
+        r'【FHD】\s*',
+        r'【UHD】\s*',
+        r'【3D】\s*',
+        r'【2D】\s*',
+        r'【AI】\s*',
+        # Add more prefixes as needed
+    ]
+
+    cleaned_details = details
+    for prefix in prefixes_to_remove:
+        if re.search(prefix, cleaned_details):
+            cleaned_details = re.sub(f'^{prefix}', '', cleaned_details).strip()
+            log.debug(f"Removed prefix matching: {prefix}")
+
+    if cleaned_details != details:
+        log.info(f"Details cleaned from: {details} -> {cleaned_details}")
+
+    return cleaned_details
+
+def cleanup_details2(details):
+    """
+    Remove common Japanese prefixes and format details.
+
+    Handles multiple prefixes and variations.
+    """
+    if details is None or details == "":
+        return details
+
+    log.info(f"Starting details cleanup for: {details}")
+
+    # Remove all Japanese bracket prefixes at the start
+    # Matches: 【anything】 repeated one or more times
+    cleaned_details = re.sub(r'^(【[^】]*】\s*)+', '', details).strip()
+
+    # Remove any leading/trailing whitespace
+    cleaned_details = cleaned_details.strip()
+
+    if cleaned_details != details:
+        log.info(f"Details cleaned from: {details} -> {cleaned_details}")
+    else:
+        log.debug(f"No prefixes found to remove in: {details}")
+
+    return cleaned_details
+
 def regexreplace(input_replace):
     word_pattern = re.compile(r'(\w|\*)+')
     output = word_pattern.sub(replace_banned_words, input_replace)
@@ -1186,7 +1250,8 @@ scrape['title'] = jav_result.get('title')
 scrape['date'] = next(iter(jav_result.get('date', [])))
 scrape['director'] = jav_result.get('director') or None
 scrape['url'] = jav_result.get('url')
-scrape['details'] = regexreplace(jav_result.get('details', ""))
+raw_details = regexreplace(jav_result.get('details', ""))
+scrape['details'] = cleanup_details2(raw_details)
 scrape['studio'] = {
     'name': next(iter(jav_result.get('studio', []))),
 }
