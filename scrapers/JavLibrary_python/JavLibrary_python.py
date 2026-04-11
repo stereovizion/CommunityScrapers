@@ -583,6 +583,7 @@ def bypass_protection(url, retries=4):
     response_html = ResponseHTML
     site = "javlibrary"
     url_n = url.replace(url_domain, site)
+    cookies = {'over18': '18'}
     try:
         if FLARESOLVERR_ENABLED:             
             url = FLARESOLVERR_URL
@@ -610,7 +611,7 @@ def bypass_protection(url, retries=4):
             #log.info(f"Flaresolverr response html: {response_html}")
         else:
             # Try regular request first
-            response = requests.get(url_n, headers=JAV_HEADERS, timeout=10)
+            response = requests.get(url_n, cookies=cookies, headers=JAV_HEADERS, timeout=10)
 
             # Check if we got a captcha challenge
             if response.status_code in (403, 503) or "captcha" in response.text.lower() or "challenge" in response.text.lower():
