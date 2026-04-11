@@ -751,8 +751,10 @@ def th_imageto_base64(imageurl, typevar):
     return
 
 
-#log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
+log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
 FRAGMENT = json.loads(sys.stdin.read())
+
+log.debug("received input: {}".format(FRAGMENT))
 
 SEARCH_TITLE = FRAGMENT.get("name")
 SEARCH_TITLE = cleanup_title(SEARCH_TITLE)
