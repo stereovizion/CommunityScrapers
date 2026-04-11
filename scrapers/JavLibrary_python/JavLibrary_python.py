@@ -1076,12 +1076,16 @@ def th_imageto_base64(imageurl, typevar):
 log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
 FRAGMENT = json.loads(sys.stdin.read())
 log.debug(f"[DEBUG] FRAGMENT: {FRAGMENT}")
+# example:
+# {'id': '29', 'title': 'ajvr00244-3-02.mp4', 'url': None, 'urls': [], 'date': None, 'details': '',
+# 'files': [{'id': '29', 'mod_time': '2024-09-30T15:25:22+02:00', 'path': '/run/media/p/AJVR00244/ajvr00244-3-02.mp4',
+# 'fingerprints': [{'type': 'oshash', 'fingerprint': 'e9c272b8125b92c2'}], 'size': 1388427025, 'format': 'mp4',
+# 'width': 4096, 'height': 2048, 'duration': 391.15, 'video_codec': 'h264', 'audio_codec': 'aac', 'frame_rate': 59.94, 'bitrate': 28396936}]}
+
 # FRAGMENT = json.loads(r'''{
 #   "name": "LULU-424",
 #   "url": "https://www.javlibrary.com/en/javme3j5ru.html"
 # }''')
-
-log.debug("received input: {}".format(FRAGMENT))
 
 SEARCH_TITLE = FRAGMENT.get("name")
 SEARCH_TITLE = cleanup_title(SEARCH_TITLE)
