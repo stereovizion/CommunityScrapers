@@ -53,6 +53,60 @@ except ModuleNotFoundError:
 JAV_DOMAIN = "Check"
 ###################
 
+COOKIES_FILE = "javlib_cookies.json"
+
+import os
+import json
+from pathlib import Path
+
+# Add this near the top with other globals
+COOKIES_FILE = "javlib_cookies.json"
+
+def load_cookies_from_file():
+    """Load cookies from persistent storage"""
+    try:
+        if os.path.exists(COOKIES_FILE):
+            with open(COOKIES_FILE, 'r') as f:
+                cookies = json.load(f)
+                log.info(f"Loaded {len(cookies)} cookies from {COOKIES_FILE} cookies:{cookies}")
+                return cookies
+    except Exception as e:
+        log.warning(f"Failed to load cookies from file: {e}")
+    return {}
+
+def save_cookies_to_file(cookies):
+    """Save cookies to persistent storage"""
+    try:
+        with open(COOKIES_FILE, 'w') as f:
+            json.dump(cookies, f, indent=2)
+            log.info(f"Saved {len(cookies)} cookies to {COOKIES_FILE}")
+    except Exception as e:
+        log.error(f"Failed to save cookies to file: {e}")
+
+def add_cookies_to_driver(driver, cookies):
+    """Add cookies to the driver before navigating"""
+    try:
+        # First navigate to the domain so cookies can be set
+        # domain = urlparse(driver.current_url).netloc or "javlibrary.com"
+        domain = "javlibrary.com"
+        log.info(f"Adding {len(cookies)} cookies to {domain}")
+        driver.get(f"https://{domain}")
+
+        # Add each cookie
+        for cookie_name, cookie_value in cookies.items():
+            try:
+                driver.add_cookie({
+                    'name': cookie_name,
+                    'value': cookie_value,
+                    'domain': domain
+                })
+                log.debug(f"Added cookie: {cookie_name}")
+            except Exception as e:
+                log.debug(f"Could not add cookie {cookie_name}: {e}")
+                # Some cookies might fail due to domain restrictions
+    except Exception as e:
+        log.warning(f"Error adding cookies to driver: {e}")
+
 JAV_SEARCH_HTML = None
 JAV_MAIN_HTML = None
 PROTECTION_CLOUDFLARE = False
@@ -447,11 +501,12 @@ def interactive_captcha_solve(url):
         url: The URL that requires captcha solving
 
     Returns:
-        cookies: Session cookies after solving, or None if timeout/error
+        dict: cookies, content, and url after solving, or None if timeout/error
     """
     if not INTERACTIVE_CAPTCHA or not SELENIUM_AVAILABLE:
         return None
 
+    driver = None
     try:
         log.info(f"Opening browser for interactive captcha solving at: {url}")
 
@@ -462,6 +517,13 @@ def interactive_captcha_solve(url):
         except Exception as e:
             log.warning(f"Failed to launch ChromeDriver: {e}")
             return None
+
+        # Load and add persistent cookies before navigating
+        persistent_cookies = load_cookies_from_file()
+        if persistent_cookies:
+            log.info("Adding persistent cookies from previous runs...")
+            add_cookies_to_driver(driver, persistent_cookies)
+
         # Create a Chrome WebDriver
         # options = webdriver.ChromeOptions()
         # driver = webdriver.Chrome('/home/matthias/programs/chromedriver-linux64/chromedriver')
@@ -489,11 +551,16 @@ def interactive_captcha_solve(url):
         cookies_list = driver.get_cookies()
         cookies_dict = {cookie['name']: cookie['value'] for cookie in cookies_list}
 
+        # Save cookies for next run
+        save_cookies_to_file(cookies_dict)
+
         # Get the current page content
         page_content = driver.page_source
         current_url = driver.current_url
 
+        log.info(f"Successfully solved captcha. Current URL: {current_url}")
         driver.quit()
+        driver = None
 
         return {
             'cookies': cookies_dict,
@@ -503,11 +570,13 @@ def interactive_captcha_solve(url):
 
     except Exception as e:
         log.error(f"Error during interactive captcha solving: {e}")
-        try:
-            driver.quit()
-        except:
-            pass
         return None
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
 
 
 def is_cloudflare_challenge_solved(driver):
