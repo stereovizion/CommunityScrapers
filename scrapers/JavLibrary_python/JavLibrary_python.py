@@ -747,6 +747,7 @@ def bypass_protection(url, retries=4):
 
 
 def send_request(url, head, retries=0, delay=2.5):
+    log.info(f"Sending request to {url}, delay {delay} seconds")
     if retries > 3:
         log.warning(f"Scrape for {url} failed after retrying {retries} times")
         return None
@@ -1160,21 +1161,25 @@ if "searchName" in sys.argv:
     log.debug(f"Using search with Title: {SEARCH_TITLE}")
     JAV_SEARCH_HTML = send_request(
         f"https://www.javlibrary.com/en/vl_searchbyid.php?keyword={SEARCH_TITLE}",
-        JAV_HEADERS)
+        JAV_HEADERS,
+        delay=0
+    )
 else:
     if SCENE_URL:
         scene_domain = re.sub(r"www\.|\.com", "", urlparse(SCENE_URL).netloc)
         # Url from Javlib
         if scene_domain in SITE_JAVLIB:
             log.debug(f"Using URL: {SCENE_URL}")
-            JAV_MAIN_HTML = send_request(SCENE_URL, JAV_HEADERS)
+            JAV_MAIN_HTML = send_request(SCENE_URL, JAV_HEADERS, delay=0)
         else:
             log.warning(f"The URL is not from JavLibrary ({SCENE_URL})")
     if JAV_MAIN_HTML is None and SCENE_TITLE:
         log.debug(f"Using search with Title: {SCENE_TITLE}")
         JAV_SEARCH_HTML = send_request(
             f"https://www.javlibrary.com/en/vl_searchbyid.php?keyword={SCENE_TITLE}",
-            JAV_HEADERS)
+            JAV_HEADERS,
+            delay=0
+        )
 
 # XPATH
 jav_xPath_search = {}
