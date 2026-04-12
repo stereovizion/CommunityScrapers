@@ -909,6 +909,8 @@ def cleanup_details2(details):
     prefixes_to_remove = [
         r'8KVR\s*',
         r'8K\s*',
+        r'VR\s*',
+        r'This Is 8K!\s*',
     ]
     for prefix in prefixes_to_remove:
         if re.search(prefix, cleaned_details):
