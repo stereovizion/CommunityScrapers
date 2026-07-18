@@ -30,11 +30,11 @@ CLEAN_QUERY_TEST_CASES = [
 
 FILENAME_SCRAPE_TEST_CASES = [
     # (input_filename, expected_code, expected_title)
-    ("some_uploader@lulu00424_2_8k_cut_1.mp4", "LULU-424", "LULU-424 2 8k cut 1"),
+    ("some_uploader@lulu00424_2_8k_cut_1.mp4", "LULU-424", "LULU-424 2 cut 1"),
     ("abc-123_some_details.mp4", "ABC-123", "ABC-123 some details"),
     ("uploader@xyz00099_details_here.avi", "XYZ-00099", "XYZ-00099 details here"),
     ("def00555.mp4", "DEF-555", "DEF-555"),
-    ("4k2.me@1sbgvr00002_2_8k_cut_1.mp4", "SBGVR-00002", "SBGVR-00002 2 8k cut 1"),
+    ("4k2.me@1sbgvr00002_2_8k_cut_1.mp4", "SBGVR-00002", "SBGVR-00002 2 cut 1"),
 ]
 
 class TestOfflineCleanup(unittest.TestCase):
