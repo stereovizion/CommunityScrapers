@@ -527,12 +527,30 @@ def interactive_captcha_solve(url):
         try:
             chrome_version = get_chrome_version()
             log.debug(f"Chrome version: {chrome_version}")
+            
+            main_version = None
             if chrome_version:
-                service = Service(ChromeDriverManager(driver_version=chrome_version).install())
-            else:
-                service = Service(ChromeDriverManager().install())
+                try:
+                    main_version = int(chrome_version.split('.')[0])
+                    log.debug(f"Extracted Chrome major version: {main_version}")
+                except Exception as ver_err:
+                    log.warning(f"Failed to parse Chrome major version: {ver_err}")
+
             options = uc.ChromeOptions()
-            driver = uc.Chrome(service=service, options=options, user_data_dir="/tmp/javlib_chrome_profile")
+            
+            try:
+                if main_version:
+                    driver = uc.Chrome(options=options, version_main=main_version, user_data_dir="/tmp/javlib_chrome_profile")
+                else:
+                    driver = uc.Chrome(options=options, user_data_dir="/tmp/javlib_chrome_profile")
+            except Exception as native_err:
+                log.warning(f"Failed to launch ChromeDriver natively: {native_err}")
+                log.info("Attempting fallback with webdriver_manager Service...")
+                if chrome_version:
+                    service = Service(ChromeDriverManager(driver_version=chrome_version).install())
+                else:
+                    service = Service(ChromeDriverManager().install())
+                driver = uc.Chrome(service=service, options=options, user_data_dir="/tmp/javlib_chrome_profile")
         except Exception as e:
             log.warning(f"Failed to launch ChromeDriver: {e}")
             return None
