@@ -573,9 +573,14 @@ def interactive_captcha_solve(url):
                     except Exception as spawn_err:
                         log.warning(f"Failed to spawn detached Chrome process: {spawn_err}")
                 
+                options = webdriver.ChromeOptions()
                 options.debugger_address = f"127.0.0.1:{REMOTE_DEBUGGING_PORT}"
                 try:
-                    driver = uc.Chrome(options=options, version_main=main_version)
+                    patcher = uc.Patcher(version_main=main_version)
+                    patcher.auto()
+                    patched_driver_path = patcher.executable_path
+                    service = Service(executable_path=patched_driver_path)
+                    driver = webdriver.Chrome(service=service, options=options)
                 except Exception as attach_err:
                     log.warning(f"Failed to attach to persistent Chrome: {attach_err}")
                     log.info("Falling back to non-persistent ChromeDriver launch...")
