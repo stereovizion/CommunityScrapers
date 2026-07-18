@@ -77,11 +77,46 @@ from pathlib import Path
 # Add this near the top with other globals
 COOKIES_FILE = "javlib_cookies.json"
 
+def clean_query(query):
+    if not query:
+        return query
+    # Strip everything before and including the @ sign
+    if "@" in query:
+        query = query.split("@", 1)[1]
+    
+    # Strip file extension if present
+    query = os.path.splitext(query)[0]
+    
+    # Extract studio code
+    parts = re.split(r'[-_ ]', query)
+    if not parts or parts[0] == '':
+        return query
+    
+    # Check if first part contains both letters and numbers
+    combomatch = re.match(r'([A-Za-z]+)(\d+)', parts[0])
+    if combomatch:
+        studio = combomatch.group(1)
+        seq_nr = combomatch.group(2)
+    else:
+        if len(parts) >= 2:
+            studio = parts[0]
+            seq_nr = parts[1]
+        else:
+            return query
+            
+    # Validate studio and seq_nr are alphanumeric
+    if re.match(r'^[A-Za-z]+$', studio) and re.match(r'^\d+$', seq_nr):
+        return f"{studio.upper()}-{seq_nr.lstrip('0')}"
+    return query
+
 def get_query_prefix(fragment):
     val = fragment.get("name") or fragment.get("title") or fragment.get("url")
     if not val:
         return "query"
-    if str(val).startswith("http"):
+    if not str(val).startswith("http"):
+        # Extract clean studio code if possible
+        val = clean_query(str(val))
+    else:
         try:
             from urllib.parse import urlparse
             parsed = urlparse(str(val))
@@ -973,6 +1008,10 @@ def cleanup_filename(filename):
     if filename == None:
         return filename
     log.info(f"Starting filename cleanup for: {filename}")
+    # Strip everything before and including the @ sign
+    if "@" in filename:
+        filename = filename.split("@", 1)[1]
+        log.info(f"Stripped @ prefix. New filename: {filename}")
     studio = ''
     seq_nr = ''
     remaining_parts = []
@@ -1328,6 +1367,8 @@ log.debug(f"[DEBUG] FRAGMENT: {FRAGMENT}")
 
 SEARCH_TITLE = FRAGMENT.get("name")
 SEARCH_TITLE = cleanup_title(SEARCH_TITLE)
+if SEARCH_TITLE:
+    SEARCH_TITLE = clean_query(SEARCH_TITLE)
 SCENE_URL = FRAGMENT.get("url")
 
 if FRAGMENT.get("title"):
