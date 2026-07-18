@@ -1039,6 +1039,9 @@ def cleanup_filename(filename):
         log.warning(f"Could not extract studio code from filename: {filename}")
         return filename
 
+    # Filter out "8k" from title details
+    remaining_parts = [p for p in remaining_parts if p.lower() != '8k']
+
     # code = letters + "-" + numbers (with custom rule for keeping leading zeros)
     stripped = seq_nr.lstrip('0')
     if len(stripped) >= 3:
