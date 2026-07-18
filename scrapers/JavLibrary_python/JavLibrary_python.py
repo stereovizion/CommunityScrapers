@@ -116,9 +116,11 @@ def cache_save(filename, content):
         log.warning(f"Failed to write cache: {e}")
 
 def is_cacheable(result):
+    if not result:
+        return False
     if isinstance(result, list) and len(result) == 1:
         title = result[0].get("title", "")
-        if "Protected by Cloudflare" in title or "failed to get the page" in title:
+        if "Protected by Cloudflare" in title or "failed to get the page" in title or "doesn't return any result" in title:
             return False
     return True
 
