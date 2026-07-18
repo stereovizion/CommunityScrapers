@@ -1360,6 +1360,21 @@ else:
 cached_output = cache_get(cache_filename)
 if cached_output is not None:
     log.info(f"Returning cached result for {query_prefix}")
+    scene_title_input = fragment_data.get("title")
+    if scene_title_input:
+        cleanup_filename(scene_title_input)
+        clean_title = scrape.get("title")
+        if clean_title:
+            try:
+                data = json.loads(cached_output)
+                if isinstance(data, dict):
+                    data["title"] = clean_title
+                    cached_output = json.dumps(data)
+                elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                    data[0]["title"] = clean_title
+                    cached_output = json.dumps(data)
+            except Exception as e:
+                log.warning(f"Failed to update cached title: {e}")
     print(cached_output)
     sys.exit(0)
 

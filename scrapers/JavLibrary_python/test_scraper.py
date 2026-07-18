@@ -104,11 +104,18 @@ class TestOnlineCache(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue((self.cache_dir / "LULU-424.json").exists())
 
-        # Cache hit
-        stdin_data_2 = {"title": "some_uploader@lulu00424_2_8k_cut_1.mp4", "id": "123"}
+        result_1 = json.loads(stdout)
+        self.assertEqual(result_1["title"], "LULU-424 2 cut 1")
+
+        # Cache hit with a different filename under same prefix
+        stdin_data_2 = {"title": "some_uploader@lulu00424_different_details_8k.mp4", "id": "123"}
         code_2, stdout_2, stderr_2 = self.run_scraper([], stdin_data_2)
         self.assertEqual(code_2, 0)
         self.assertIn("Returning cached result for LULU-424", stderr_2)
+
+        result_2 = json.loads(stdout_2)
+        # The title in result_2 should be replaced with the current cleaned-up title!
+        self.assertEqual(result_2["title"], "LULU-424 different details")
 
     def test_clear_cache(self):
         # Generate cache
