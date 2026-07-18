@@ -25,14 +25,16 @@ CLEAN_QUERY_TEST_CASES = [
     ("lulu00424_8k", "LULU-424"),
     ("some_user@abc00123_4k", "ABC-123"),
     ("abc-123", "ABC-123"),
+    ("4k2.me@1sbgvr00002_2_8k_cut_1", "SBGVR-00002"),
 ]
 
 FILENAME_SCRAPE_TEST_CASES = [
     # (input_filename, expected_code, expected_title)
     ("some_uploader@lulu00424_2_8k_cut_1.mp4", "LULU-424", "LULU-424 2 8k cut 1"),
     ("abc-123_some_details.mp4", "ABC-123", "ABC-123 some details"),
-    ("uploader@xyz00099_details_here.avi", "XYZ-99", "XYZ-99 details here"),
+    ("uploader@xyz00099_details_here.avi", "XYZ-00099", "XYZ-00099 details here"),
     ("def00555.mp4", "DEF-555", "DEF-555"),
+    ("4k2.me@1sbgvr00002_2_8k_cut_1.mp4", "SBGVR-00002", "SBGVR-00002 2 8k cut 1"),
 ]
 
 class TestOfflineCleanup(unittest.TestCase):
