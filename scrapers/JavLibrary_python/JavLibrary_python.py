@@ -1038,7 +1038,7 @@ def cleanup_filename(filename):
     # code = letters + "-" + numbers
     code = f"{studio.upper()}-{seq_nr.lstrip('0')}"
     log.info(f"Resulting studio code: {code}")
-    scrape['title'] = f"{code} {' '.join(remaining_parts)}"
+    scrape['title'] = f"{code} {' '.join(remaining_parts)}".strip()
     log.info(f"Resulting title: {scrape['title']}")
     # scrape['code'] = code
     return code
