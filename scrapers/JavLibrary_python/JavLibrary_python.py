@@ -5,6 +5,18 @@ import re
 import socket
 import subprocess
 import sys
+from pathlib import Path
+CACHE_DIR = Path(__file__).parent / ".javlibrary_cache"
+if "--clear-cache" in sys.argv:
+    try:
+        import shutil
+        if CACHE_DIR.exists():
+            shutil.rmtree(CACHE_DIR)
+        print("Cache cleared successfully.")
+        sys.exit(0)
+    except Exception as e:
+        print(f"Failed to clear cache: {e}", file=sys.stderr)
+        sys.exit(1)
 import threading
 import time
 # import webbrowser
@@ -64,6 +76,57 @@ from pathlib import Path
 
 # Add this near the top with other globals
 COOKIES_FILE = "javlib_cookies.json"
+
+def get_query_prefix(fragment):
+    val = fragment.get("name") or fragment.get("title") or fragment.get("url")
+    if not val:
+        return "query"
+    if str(val).startswith("http"):
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(str(val))
+            path = parsed.path.strip("/")
+            if path:
+                parts = path.split("/")
+                val = parts[-1]
+        except Exception:
+            pass
+    # Clean the value to make it safe for filenames
+    import re
+    cleaned = re.sub(r'[^a-zA-Z0-9\-_]', '_', str(val))
+    return cleaned[:50]
+
+def cache_get(filename):
+    try:
+        cache_file = CACHE_DIR / filename
+        if cache_file.exists():
+            return cache_file.read_text(encoding='utf-8')
+    except Exception as e:
+        log.warning(f"Failed to read cache: {e}")
+    return None
+
+def cache_save(filename, content):
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = CACHE_DIR / filename
+        temp_file = cache_file.with_suffix(".tmp")
+        temp_file.write_text(content, encoding='utf-8')
+        temp_file.replace(cache_file)
+    except Exception as e:
+        log.warning(f"Failed to write cache: {e}")
+
+def is_cacheable(result):
+    if isinstance(result, list) and len(result) == 1:
+        title = result[0].get("title", "")
+        if "Protected by Cloudflare" in title or "failed to get the page" in title:
+            return False
+    return True
+
+def print_and_cache(result, filename):
+    output = json.dumps(result)
+    print(output)
+    if is_cacheable(result):
+        cache_save(filename, output)
 
 def load_cookies_from_file():
     """Load cookies from persistent storage"""
@@ -1220,7 +1283,35 @@ def th_imageto_base64(imageurl, typevar):
 
 
 log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
-FRAGMENT = json.loads(sys.stdin.read())
+
+import hashlib
+import io
+
+stdin_content = sys.stdin.read()
+sys.stdin = io.StringIO(stdin_content)
+
+fragment_data = {}
+if stdin_content:
+    try:
+        fragment_data = json.loads(stdin_content)
+    except Exception:
+        pass
+
+# Generate cache filename based on the query prefix and arguments
+query_prefix = get_query_prefix(fragment_data)
+args_suffix = "_".join(sys.argv[1:])
+if args_suffix:
+    cache_filename = f"{query_prefix}_{args_suffix}.json"
+else:
+    cache_filename = f"{query_prefix}.json"
+
+cached_output = cache_get(cache_filename)
+if cached_output is not None:
+    log.info(f"Returning cached result for {query_prefix}")
+    print(cached_output)
+    sys.exit(0)
+
+FRAGMENT = fragment_data
 log.debug(f"[DEBUG] FRAGMENT: {FRAGMENT}")
 # example:
 # {'id': '29', 'title': 'ajvr00244-3-02.mp4', 'url': None, 'urls': [], 'date': None, 'details': '',
@@ -1332,21 +1423,18 @@ if "searchName" in sys.argv:
         else:
             jav_result = jav_search_by_name(JAV_SEARCH_HTML, jav_xPath_search)
         if jav_result:
-            print(json.dumps(jav_result))
+            print_and_cache(jav_result, cache_filename)
         else:
-            print(json.dumps([{"title": "The search doesn't return any result."}]))
+            print_and_cache([{"title": "The search doesn't return any result."}], cache_filename)
     else:
         if PROTECTION_CLOUDFLARE:
-            print(
-                json.dumps([{
-                    "title": "Protected by Cloudflare, try later."
-                }]))
+            print_and_cache([{
+                "title": "Protected by Cloudflare, try later."
+            }], cache_filename)
         else:
-            print(
-                json.dumps([{
-                    "title":
-                    "The request has failed to get the page. Check log."
-                }]))
+            print_and_cache([{
+                "title": "The request has failed to get the page. Check log."
+            }], cache_filename)
     sys.exit()
 
 if JAV_SEARCH_HTML:
@@ -1408,7 +1496,7 @@ if JAV_MAIN_HTML:
 
 if JAV_MAIN_HTML is None:
     log.info("No results found")
-    print(json.dumps({}))
+    print_and_cache({}, cache_filename)
     sys.exit()
 
 log.debug('[JAV] {}'.format(jav_result))
@@ -1455,4 +1543,4 @@ try:
 except NameError:
     log.debug("No image JAV Thread")
 
-print(json.dumps(scrape))
+print_and_cache(scrape, cache_filename)
