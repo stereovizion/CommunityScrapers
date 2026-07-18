@@ -2,6 +2,7 @@
 import base64
 import json
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -123,6 +124,8 @@ FLARESOLVERR_TIMEOUT_MAX = 60000
 # Interactive Captcha Solving
 INTERACTIVE_CAPTCHA = True  # Set to False to disable interactive captcha solving
 CAPTCHA_TIMEOUT = 300  # 5 minutes to solve captcha
+PERSISTENT_BROWSER = True  # Keep Chrome open across scraper runs
+REMOTE_DEBUGGING_PORT = 9222  # Port to communicate with Chrome
 
 JAV_HEADERS = {
     "User-Agent":
@@ -506,6 +509,15 @@ def get_chrome_version():
         log.warning(f"Failed to get Chrome version: {e}")
         return None
 
+def is_port_open(port):
+    """Check if a local port is open."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            return s.connect_ex(('127.0.0.1', port)) == 0
+    except Exception:
+        return False
+
 def interactive_captcha_solve(url):
     """
     Opens a browser for interactive captcha solving.
@@ -538,19 +550,54 @@ def interactive_captcha_solve(url):
 
             options = uc.ChromeOptions()
             
-            try:
-                if main_version:
-                    driver = uc.Chrome(options=options, version_main=main_version, user_data_dir="/tmp/javlib_chrome_profile")
-                else:
-                    driver = uc.Chrome(options=options, user_data_dir="/tmp/javlib_chrome_profile")
-            except Exception as native_err:
-                log.warning(f"Failed to launch ChromeDriver natively: {native_err}")
-                log.info("Attempting fallback with webdriver_manager Service...")
-                if chrome_version:
-                    service = Service(ChromeDriverManager(driver_version=chrome_version).install())
-                else:
-                    service = Service(ChromeDriverManager().install())
-                driver = uc.Chrome(service=service, options=options, user_data_dir="/tmp/javlib_chrome_profile")
+            if PERSISTENT_BROWSER:
+                if not is_port_open(REMOTE_DEBUGGING_PORT):
+                    log.info(f"Port {REMOTE_DEBUGGING_PORT} is closed. Launching detached Chrome process...")
+                    try:
+                        subprocess.Popen([
+                            "google-chrome",
+                            f"--remote-debugging-port={REMOTE_DEBUGGING_PORT}",
+                            "--user-data-dir=/tmp/javlib_chrome_profile",
+                            "--no-first-run",
+                            "--no-default-browser-check"
+                        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                        
+                        # Wait for the port to open
+                        for _ in range(10):
+                            if is_port_open(REMOTE_DEBUGGING_PORT):
+                                log.debug("Chrome detached process started and port is open.")
+                                break
+                            time.sleep(0.5)
+                        else:
+                            log.warning("Timeout waiting for detached Chrome port to open.")
+                    except Exception as spawn_err:
+                        log.warning(f"Failed to spawn detached Chrome process: {spawn_err}")
+                
+                options.debugger_address = f"127.0.0.1:{REMOTE_DEBUGGING_PORT}"
+                try:
+                    driver = uc.Chrome(options=options, version_main=main_version)
+                except Exception as attach_err:
+                    log.warning(f"Failed to attach to persistent Chrome: {attach_err}")
+                    log.info("Falling back to non-persistent ChromeDriver launch...")
+                    options = uc.ChromeOptions()
+                    if main_version:
+                        driver = uc.Chrome(options=options, version_main=main_version, user_data_dir="/tmp/javlib_chrome_profile")
+                    else:
+                        driver = uc.Chrome(options=options, user_data_dir="/tmp/javlib_chrome_profile")
+            else:
+                try:
+                    if main_version:
+                        driver = uc.Chrome(options=options, version_main=main_version, user_data_dir="/tmp/javlib_chrome_profile")
+                    else:
+                        driver = uc.Chrome(options=options, user_data_dir="/tmp/javlib_chrome_profile")
+                except Exception as native_err:
+                    log.warning(f"Failed to launch ChromeDriver natively: {native_err}")
+                    log.info("Attempting fallback with webdriver_manager Service...")
+                    if chrome_version:
+                        service = Service(ChromeDriverManager(driver_version=chrome_version).install())
+                    else:
+                        service = Service(ChromeDriverManager().install())
+                    driver = uc.Chrome(service=service, options=options, user_data_dir="/tmp/javlib_chrome_profile")
         except Exception as e:
             log.warning(f"Failed to launch ChromeDriver: {e}")
             return None
@@ -578,7 +625,11 @@ def interactive_captcha_solve(url):
             log.info("Captcha solved! Extracting cookies...")
         except Exception as e:
             log.warning(f"Timeout waiting for captcha solution: {e}")
-            driver.quit()
+            if not PERSISTENT_BROWSER:
+                try:
+                    driver.quit()
+                except:
+                    pass
             return None
 
         # Wait a bit for page to fully load after captcha solve
@@ -596,8 +647,12 @@ def interactive_captcha_solve(url):
         current_url = driver.current_url
 
         log.info(f"Successfully solved captcha. Current URL: {current_url}")
-        driver.quit()
-        driver = None
+        if not PERSISTENT_BROWSER:
+            try:
+                driver.quit()
+            except:
+                pass
+            driver = None
 
         return {
             'cookies': cookies_dict,
@@ -609,7 +664,7 @@ def interactive_captcha_solve(url):
         log.error(f"Error during interactive captcha solving: {e}")
         return None
     finally:
-        if driver:
+        if driver and not PERSISTENT_BROWSER:
             try:
                 driver.quit()
             except:
