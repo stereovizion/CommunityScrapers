@@ -17,6 +17,7 @@ import undetected_chromedriver as uc
 
 try:
     from py_common import log
+    from py_common.config import get_config
 except ModuleNotFoundError:
     print("You need to download the folder 'py_common' from the community repo! (CommunityScrapers/tree/master/scrapers/py_common)", file=sys.stderr)
     sys.exit()
@@ -132,6 +133,15 @@ JAV_HEADERS = {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
     "Referer": "http://www.javlibrary.com/"
 }
+config = get_config(
+    default="""
+# Return tags or not
+RETURN_TAGS = False
+"""
+)
+
+RETURN_TAGS = config.RETURN_TAGS
+
 # We can't add movie image atm in the same time as Scene
 STASH_SUPPORTED = False
 # Stash doesn't support Labels yet
@@ -1428,13 +1438,14 @@ if WAIT_FOR_ALIASES and not IGNORE_ALIASES:
         log.debug("No Jav Aliases Thread")
 scrape['performers'] = buildlist_tagperf(jav_result, "perf_jav")
 
-scrape['tags'] = buildlist_tagperf(jav_result.get('tags', []), "tags")
-scrape['tags'] = [
-    {
-        "name": tag_name.strip()
-    } for tag_dict in scrape['tags']
-    for tag_name in tag_dict["name"].replace('·', ',').split(",")
-]
+if RETURN_TAGS:
+    scrape['tags'] = buildlist_tagperf(jav_result.get('tags', []), "tags")
+    scrape['tags'] = [
+        {
+            "name": tag_name.strip()
+        } for tag_dict in scrape['tags']
+        for tag_name in tag_dict["name"].replace('·', ',').split(",")
+    ]
 
 try:
     if imageBase64_jav_thread.is_alive() is True:
