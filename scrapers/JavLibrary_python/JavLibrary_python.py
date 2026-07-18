@@ -92,8 +92,8 @@ def clean_query(query):
     if not parts or parts[0] == '':
         return query
     
-    # Check if first part contains both letters and numbers
-    combomatch = re.match(r'([A-Za-z]+)(\d+)', parts[0])
+    # Check if first part contains both letters and numbers (with optional leading digits)
+    combomatch = re.match(r'^\d*([A-Za-z]+)(\d+)', parts[0])
     if combomatch:
         studio = combomatch.group(1)
         seq_nr = combomatch.group(2)
@@ -106,7 +106,11 @@ def clean_query(query):
             
     # Validate studio and seq_nr are alphanumeric
     if re.match(r'^[A-Za-z]+$', studio) and re.match(r'^\d+$', seq_nr):
-        return f"{studio.upper()}-{seq_nr.lstrip('0')}"
+        stripped = seq_nr.lstrip('0')
+        if len(stripped) >= 3:
+            return f"{studio.upper()}-{stripped}"
+        else:
+            return f"{studio.upper()}-{seq_nr}"
     return query
 
 def get_query_prefix(fragment):
@@ -1020,7 +1024,7 @@ def cleanup_filename(filename):
     # split filename by - , _ or space character
     parts = re.split(r'[-_ ]', filename)
     # check if first part contains both studio prefix and sequence number and extract them
-    combomatch = re.match(r'([A-Za-z]+)(\d+)', parts[0])
+    combomatch = re.match(r'^\d*([A-Za-z]+)(\d+)', parts[0])
     if combomatch:
         studio = combomatch.group(1)
         seq_nr = combomatch.group(2)
@@ -1035,8 +1039,12 @@ def cleanup_filename(filename):
         log.warning(f"Could not extract studio code from filename: {filename}")
         return filename
 
-    # code = letters + "-" + numbers
-    code = f"{studio.upper()}-{seq_nr.lstrip('0')}"
+    # code = letters + "-" + numbers (with custom rule for keeping leading zeros)
+    stripped = seq_nr.lstrip('0')
+    if len(stripped) >= 3:
+        code = f"{studio.upper()}-{stripped}"
+    else:
+        code = f"{studio.upper()}-{seq_nr}"
     log.info(f"Resulting studio code: {code}")
     scrape['title'] = f"{code} {' '.join(remaining_parts)}".strip()
     log.info(f"Resulting title: {scrape['title']}")
