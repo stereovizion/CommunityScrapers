@@ -221,10 +221,6 @@ PROTECTION_CLOUDFLARE = False
 # scraped output to be sent back to stash
 scrape = {}
 
-# Flaresolverr
-FLARESOLVERR_ENABLED = False
-FLARESOLVERR_URL = "http://localhost:8191/v1"
-FLARESOLVERR_TIMEOUT_MAX = 60000
 
 # Interactive Captcha Solving
 INTERACTIVE_CAPTCHA = True  # Set to False to disable interactive captcha solving
@@ -543,53 +539,28 @@ def bypass_protection(url, retries=4):
     url_n = url.replace(url_domain, site)
     cookies = {'over18': '18'}
     try:
-        if FLARESOLVERR_ENABLED:             
-            url = FLARESOLVERR_URL
-            headers = {"Content-Type": "application/json"}
-            data = {
-                "cmd": "request.get",
-                "url": url_n,
-                "session": "2",
-                "session_ttl_minutes": 120,
-                "maxTimeout": FLARESOLVERR_TIMEOUT_MAX,
-                "set-cookie": "over18=18",
-            }
+        # Try regular request first
+        response = requests.get(url_n, cookies=cookies, headers=JAV_HEADERS, timeout=10)
 
-            log.info(f"Using FlareSolverr: {FLARESOLVERR_URL}")
-            log.info(f"Javlibrary input url: {url_n}")
-            cookies = {'over18': '18'}
-            responseJson = requests.post(FLARESOLVERR_URL, cookies=cookies, headers=headers, json=data)
-            json_input = responseJson.json()
+        # Check if we got a captcha challenge
+        if response.status_code in (403, 503) or "captcha" in response.text.lower() or "challenge" in response.text.lower():
+            log.warning(f"Captcha/Challenge detected. Attempting interactive solve...")
+            captcha_result = interactive_captcha_solve(url_n)
 
-            response_html.content = json_input['solution']['response']
-            response_html.html = json_input['solution']['response']
-            response_html.status_code = json_input['solution']['status']
-            response_html.url = json_input['solution']['url']
-
-            #log.info(f"Flaresolverr response html: {response_html}")
-        else:
-            # Try regular request first
-            response = requests.get(url_n, cookies=cookies, headers=JAV_HEADERS, timeout=10)
-
-            # Check if we got a captcha challenge
-            if response.status_code in (403, 503) or "captcha" in response.text.lower() or "challenge" in response.text.lower():
-                log.warning(f"Captcha/Challenge detected. Attempting interactive solve...")
-                captcha_result = interactive_captcha_solve(url_n)
-
-                if captcha_result:
-                    response_html.content = captcha_result['content'].encode('utf-8')
-                    response_html.html = captcha_result['content']
-                    response_html.status_code = 200
-                    response_html.url = captcha_result['url']
-                else:
-                    log.error("Interactive captcha solving failed or timed out")
-                    return None, None
+            if captcha_result:
+                response_html.content = captcha_result['content'].encode('utf-8')
+                response_html.html = captcha_result['content']
+                response_html.status_code = 200
+                response_html.url = captcha_result['url']
             else:
-                response_html.content = response.content
-                response_html.html = response.text
-                response_html.status_code = response.status_code
-                response_html.url = response.url
-                return site, response_html
+                log.error("Interactive captcha solving failed or timed out")
+                return None, None
+        else:
+            response_html.content = response.content
+            response_html.html = response.text
+            response_html.status_code = response.status_code
+            response_html.url = response.url
+            return site, response_html
 
     except Exception as exc_req:
         log.warning(f"Exception error {exc_req} while checking protection for {site}")
