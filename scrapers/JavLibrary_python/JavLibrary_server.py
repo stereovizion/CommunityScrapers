@@ -278,7 +278,7 @@ FIXED_TAGS = ""
 SPLIT_TAGS = False
 
 # Don't fetch the Aliases (Japanese Name)
-IGNORE_ALIASES = False
+IGNORE_ALIASES = True
 # Always wait for the aliases to load. (Depends on network response)
 WAIT_FOR_ALIASES = False
 # All javlib sites
