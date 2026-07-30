@@ -27,6 +27,9 @@ from selenium.webdriver.chrome.service import Service
 
 import undetected_chromedriver as uc
 
+# Add parent directory to sys.path so py_common is found
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 try:
     from py_common import log
     from py_common.config import get_config
@@ -168,6 +171,7 @@ def print_and_cache(result, filename):
     print(output)
     if is_cacheable(result):
         cache_save(filename, output)
+    return output
 
 def load_cookies_from_file():
     """Load cookies from persistent storage"""
@@ -236,6 +240,10 @@ config = get_config(
     default="""
 # Return tags or not
 RETURN_TAGS = False
+
+# Remote Desktop Server configuration
+REMOTE_SERVER_ENABLED = False
+REMOTE_SERVER_URL = http://127.0.0.1:8000
 """
 )
 
@@ -920,16 +928,23 @@ def th_imageto_base64(imageurl, typevar):
 log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
 
 
-def scrape(stash_request=None):
+def scrape(stash_request=None, args=None, return_output=False):
     global JAV_SEARCH_HTML, JAV_MAIN_HTML, scraped_data, jav_result
+    JAV_SEARCH_HTML = None
+    JAV_MAIN_HTML = None
+    scraped_data = {}
+    jav_result = {}
+
     if stash_request is None:
         stash_request = {}
 
     fragment_data = stash_request
 
+    active_args = args if args is not None else sys.argv[1:]
+
     # Generate cache filename based on the query prefix and arguments
     query_prefix = get_query_prefix(fragment_data)
-    args_suffix = "_".join(sys.argv[1:])
+    args_suffix = "_".join(active_args)
     if args_suffix:
         cache_filename = f"{query_prefix}_{args_suffix}.json"
     else:
@@ -953,6 +968,8 @@ def scrape(stash_request=None):
                         cached_output = json.dumps(data)
                 except Exception as e:
                     log.warning(f"Failed to update cached title: {e}")
+        if return_output:
+            return cached_output
         print(cached_output)
         sys.exit(0)
 
@@ -981,10 +998,12 @@ def scrape(stash_request=None):
     else:
         SCENE_TITLE = None
 
-    if "validSearch" in sys.argv and SCENE_URL is None:
+    if "validSearch" in active_args and SCENE_URL is None:
+        if return_output:
+            return json.dumps({})
         sys.exit()
 
-    if "searchName" in sys.argv:
+    if "searchName" in active_args:
         log.debug(f"Using search with Title: {SEARCH_TITLE}")
         JAV_SEARCH_HTML = send_request(
             f"https://www.javlibrary.com/en/vl_searchbyid.php?keyword={SEARCH_TITLE}",
@@ -1051,7 +1070,7 @@ def scrape(stash_request=None):
 
     jav_result = {}
 
-    if "searchName" in sys.argv:
+    if "searchName" in active_args:
         if JAV_SEARCH_HTML:
             if "/en/jav" in JAV_SEARCH_HTML.url:
                 log.debug(f"Scraping the movie page directly ({JAV_SEARCH_HTML.url})")
@@ -1069,13 +1088,15 @@ def scrape(stash_request=None):
             else:
                 jav_result = jav_search_by_name(JAV_SEARCH_HTML, jav_xPath_search)
             if jav_result:
-                print_and_cache(jav_result, cache_filename)
+                out = print_and_cache(jav_result, cache_filename)
             else:
-                print_and_cache([{"title": "The search doesn't return any result."}], cache_filename)
+                out = print_and_cache([{"title": "The search doesn't return any result."}], cache_filename)
         else:
-            print_and_cache([{
+            out = print_and_cache([{
                 "title": "The request has failed to get the page. Check log."
             }], cache_filename)
+        if return_output:
+            return out
         sys.exit()
 
     if JAV_SEARCH_HTML:
@@ -1183,15 +1204,102 @@ def scrape(stash_request=None):
     except NameError:
         log.debug("No image JAV Thread")
 
-    print_and_cache(scraped_data, cache_filename)
+    out = print_and_cache(scraped_data, cache_filename)
+    if return_output:
+        return out
+
+
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
+
+class ScrapingServerHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/scrape":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            stash_req = {}
+            cli_args = []
+            if post_data:
+                try:
+                    payload = json.loads(post_data.decode("utf-8"))
+                    if isinstance(payload, dict):
+                        stash_req = payload.get("stash_request", {})
+                        cli_args = payload.get("args", [])
+                except Exception as e:
+                    log.error(f"Error parsing HTTP payload: {e}")
+
+            result_json = scrape(stash_request=stash_req, args=cli_args, return_output=True)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            if result_json:
+                self.wfile.write(result_json.encode("utf-8"))
+            else:
+                self.wfile.write(b"{}")
+        elif self.path == "/clear-cache":
+            try:
+                import shutil
+                if CACHE_DIR.exists():
+                    shutil.rmtree(CACHE_DIR)
+                msg = json.dumps({"status": "success", "message": "Cache cleared successfully."})
+                self.send_response(200)
+            except Exception as e:
+                msg = json.dumps({"status": "error", "message": str(e)})
+                self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(msg.encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        log.info(f"[Server] {format % args}")
+
+
+def run_server(host="127.0.0.1", port=8000):
+    server_address = (host, port)
+    httpd = ThreadingHTTPServer(server_address, ScrapingServerHandler)
+    log.info(f"Starting JavLibrary desktop HTTP server on {host}:{port}...")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        log.info("Server stopped by user.")
+        httpd.server_close()
 
 
 if __name__ == "__main__":
-    stdin_content = sys.stdin.read()
-    stash_request = {}
-    if stdin_content:
+    server_url = getattr(config, "REMOTE_SERVER_URL", "http://127.0.0.1:8000")
+    parsed = urlparse(server_url)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or 8000
+
+    if "--port" in sys.argv:
         try:
-            stash_request = json.loads(stdin_content)
+            port_idx = sys.argv.index("--port") + 1
+            port = int(sys.argv[port_idx])
         except Exception:
             pass
-    scrape(stash_request)
+
+    if not sys.stdin.isatty():
+        stdin_content = sys.stdin.read()
+        if stdin_content.strip():
+            try:
+                stash_request = json.loads(stdin_content)
+            except Exception:
+                stash_request = {}
+            scrape(stash_request)
+            sys.exit(0)
+
+    run_server(host=host, port=port)
+
