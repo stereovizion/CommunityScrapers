@@ -216,7 +216,6 @@ def add_cookies_to_driver(driver, cookies):
 
 JAV_SEARCH_HTML = None
 JAV_MAIN_HTML = None
-PROTECTION_CLOUDFLARE = False
 
 # scraped output to be sent back to stash
 scrape = {}
@@ -1079,14 +1078,9 @@ if "searchName" in sys.argv:
         else:
             print_and_cache([{"title": "The search doesn't return any result."}], cache_filename)
     else:
-        if PROTECTION_CLOUDFLARE:
-            print_and_cache([{
-                "title": "Protected by Cloudflare, try later."
-            }], cache_filename)
-        else:
-            print_and_cache([{
-                "title": "The request has failed to get the page. Check log."
-            }], cache_filename)
+        print_and_cache([{
+            "title": "The request has failed to get the page. Check log."
+        }], cache_filename)
     sys.exit()
 
 if JAV_SEARCH_HTML:
