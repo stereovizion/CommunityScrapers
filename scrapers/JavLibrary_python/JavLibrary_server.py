@@ -277,8 +277,6 @@ SPLIT_TAGS = False
 IGNORE_ALIASES = True
 # Always wait for the aliases to load. (Depends on network response)
 WAIT_FOR_ALIASES = False
-# All javlib sites
-SITE_JAVLIB = ["javlibrary"]
 
 
 
@@ -953,9 +951,8 @@ def scrape(stash_request=None, args=None, return_output=False):
         )
     else:
         if SCENE_URL:
-            scene_domain = re.sub(r"www\.|\.com", "", urlparse(SCENE_URL).netloc)
-            # Url from Javlib
-            if scene_domain in SITE_JAVLIB:
+            netloc = urlparse(SCENE_URL).netloc.lower()
+            if "javlib" in netloc:
                 log.debug(f"Using URL: {SCENE_URL}")
                 JAV_MAIN_HTML = send_request(SCENE_URL, JAV_HEADERS, delay=0)
             else:
