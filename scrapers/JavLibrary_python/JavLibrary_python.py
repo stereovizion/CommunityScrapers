@@ -452,11 +452,6 @@ REPLACE_TITLE = {
     ".YUV": ""
 }
 
-OBFUSCATED_TAGS = {
-    "Girl": "Young Girl", # ロリ系 in Japanese
-    "Tits": "Small Tits" # 微乳 in Japanese
-}
-
 
 class ResponseHTML:
     content = ""
@@ -1088,8 +1083,6 @@ def buildlist_tagperf(data, type_scrape=""):
                         "nickname"] = parsed_name[0]
         if type_scrape == "tags" and p_name in IGNORE_TAGS:
             continue
-        if type_scrape == "tags" and p_name in OBFUSCATED_TAGS:
-            p_name = OBFUSCATED_TAGS[p_name]
         if type_scrape == "perf_jav" and dict_jav.get("performer_aliases"):
             try:
                 list_tmp.append({
