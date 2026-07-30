@@ -281,157 +281,7 @@ WAIT_FOR_ALIASES = False
 # All javlib sites
 SITE_JAVLIB = ["javlibrary"]
 
-BANNED_WORDS = {
-    "A******ation": "Asphyxiation",
-    "A*****t": "Assault",
-    "A*****ts": "Assaults",
-    "A*****ted": "Assaulted",
-    "A*****ting": "Assaulting",
-    "A****p": "Asleep",
-    "A***e": "Abuse",
-    "A***ed": "Abused",
-    "A***es": "Abuses",
-    "B*****k": "Berserk",
-    "B*****p": "Bang Up",
-    "B***d": "Blood",
-    "B***dcurdling": "Bloodcurdling",
-    "B***dline": "Bloodline",
-    "B***dy": "Bloody",
-    "B*******y": "Brutality",
-    "B******y": "Brutally",
-    "C*****y": "Cruelty",
-    "C***d": "Child",
-    "C***dcare": "Childcare",
-    "C***dhood": "Childhood",
-    "C***dish": "Childish",
-    "C***dren": "Children",
-    "C*ck": "Cock",
-    "C*cks": "Cocks",
-    "C*llegiate": "Collegiate",
-    "Chai*saw": "Chainsaw",
-    "CrumB**d": "Crumbled",
-    "D*ck": "Dick",
-    "D******e": "Disgrace",
-    "D******ed": "Disgraced",
-    "D******eful": "Disgraceful",
-    "D***k": "Drunk",
-    "D***ken": "Drunken",
-    "D***kest": "Drunkest",
-    "D***king": "Drinking",
-    "D***ks": "Drinks",
-    "D**g": "Drug",
-    "D**gged": "Drugged",
-    "D**gs": "Drugs",
-    "EnS***ed": "Enslaved",
-    "F*****g": "Fucking",
-    "F***e": "Force",
-    "F***ed": "Fucked",
-    "F***eful": "Forceful",
-    "F***efully": "Forcefully",
-    "F***es": "Forces",
-    "G*********d": "Gang-Banged",
-    "G*******g": "Gangbang",
-    "G*******ged": "Gangbanged",
-    "G*******ging": "Gangbanging",
-    "G******ging": "Gangbanging",
-    "G*******gs": "Gangbangs",
-    "G******g": "Gangbang",
-    "G******ged": "Gangbanged",
-    "G****gers": "Gangbangers",
-    "H*********n": "Humiliation",
-    "H*******ed": "Hypnotized",
-    "H*******m": "Hypnotism",
-    "H**t": "Hurt",
-    "H**ts": "Hurts",
-    "Half-A****p": "Half-Asleep",
-    "Hot-B***ded": "Hot-Blooded",
-    "HumB**d": "Humbled",
-    "H*******es": "Humiliates",
-    "H******s": "Hypnosis",
-    "I********ed": "Impregnated",
-    "I****t": "Incest",
-    "I****tual": "Incestual",
-    "I****ted": "Insulted",
-    "I****ting": "Insulting",
-    "I****ts": "Insults",
-    "I****tuous": "Incestuous",
-    "J*": "Jo",
-    "J*s": "Jos",
-    "K****p": "Kidnap",
-    "K****pped": "Kidnapped",
-    "K****pper": "Kidnapper",
-    "K****pping": "Kidnapping",
-    "K**l": "Kill",
-    "K**led": "Killed",
-    "K**ler": "Killer",
-    "K**ling": "Killing",
-    "K*d": "Kid",
-    "K*dding": "Kidding",
-    "K*ds": "Kids",
-    "Lo**ta": "Lolita",
-    "Lol*pop": "Lolipop",
-    "M****t": "Molest",
-    "M****ts": "Molests",
-    "M****tation": "Molestation",
-    "M****ted": "Molested",
-    "M****ter": "Molester",
-    "M****ters": "Molesters",
-    "M****ting": "Molesting",
-    "M****tor": "Molestor",
-    "Ma*ko": "Maiko",
-    "P****h": "Punish",
-    "P****hed": "Punished",
-    "P****hing": "Punishing",
-    "P****hment": "Punishment",
-    "P********t": "Punishment",
-    "P**hed": "Punished",
-    "P*ssy": "Pussy",
-    "R****g": "Raping",
-    "R**e": "Rape",
-    "R**ey": "Rapey",
-    "R**ed": "Raped",
-    "R**es": "Rapes",
-    "S*********l": "School Girl",
-    "S*********ls": "School Girls",
-    "S*********s": "Schoolgirls",
-    "S********l": "Schoolgirl",
-    "S********ls": "Schoolgirls",
-    "S********n": "Submission",
-    "S**t": "Shit",
-    "S******g": "Sleeping",
-    "S*****t": "Student",
-    "S*****ts": "Students",
-    "S***e": "Slave",
-    "S***ery": "Slavery",
-    "S***es": "Slaves",
-    "Sch**lgirl": "Schoolgirl",
-    "Sch**lgirls": "Schoolgirls",
-    "SK**led": "Skilled",
-    "SK**lful": "Skillful",
-    "SK**lfully": "Skillfully",
-    "SK**ls": "Skills",
-    "StepB****************r": "StepBrother And Sister",
-    "StepK*ds ": "StepKids",
-    "StepM************n": "Stepmother And Son",
-    "T******e": "Tentacle",
-    "T******es": "Tentacles",
-    "T*****e": "Torture",
-    "T*****ed": "Tortured",
-    "T*****es": "Tortures",
-    "U*********s": "Unconscious",
-    "U*********sly": "Unconsciously",
-    "U*******g": "Unwilling",
-    "U*******gly": "Unwillingly",
-    "V******e": "Violence",
-    "V*****e": "Violate",
-    "V*olated": "Violated",
-    "V*****ed": "Violated",
-    "V*****es": "Violates",
-    "V*****t": "Violent",
-    "V*****tly": "Violently",
-    "Y********l": "Young Girl",
-    "Y********ls": "Young Girls"
-}
+
 
 REPLACE_TITLE = {
     "FHD_6M-": "",
@@ -979,11 +829,6 @@ def send_request(url, head, retries=0, delay=2.5):
     return response
 
 
-def replace_banned_words(matchobj):
-    word = matchobj.group(0)
-    if word in BANNED_WORDS:
-        return BANNED_WORDS[word]
-    return word
 
 def cleanup_title(title):
     if title == None:
@@ -1130,10 +975,6 @@ def cleanup_details2(details):
 
     return cleaned_details
 
-def regexreplace(input_replace):
-    word_pattern = re.compile(r'(\w|\*)+')
-    output = word_pattern.sub(replace_banned_words, input_replace)
-    return re.sub(r"[\[\]\"]", "", output)
 
 
 def getxpath(xpath, tree):
@@ -1578,8 +1419,7 @@ if 'title' not in scrape:
 scrape['date'] = next(iter(jav_result.get('date', [])))
 scrape['director'] = jav_result.get('director') or None
 scrape['url'] = jav_result.get('url')
-raw_details = regexreplace(jav_result.get('details', ""))
-scrape['details'] = cleanup_details2(raw_details)
+scrape['details'] = cleanup_details2(jav_result.get('details', ""))
 scrape['studio'] = {
     'name': next(iter(jav_result.get('studio', []))),
 }
