@@ -1212,12 +1212,25 @@ def scrape(stash_request=None, args=None, return_output=False):
 from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 
 class ScrapingServerHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def send_json_response(self, data_str, status=200):
+        try:
+            body = data_str.encode("utf-8") if isinstance(data_str, str) else data_str
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError) as e:
+            log.warning(f"Client disconnected before HTTP response could be delivered: {e}")
+        except Exception as e:
+            log.error(f"Error sending HTTP response: {e}")
+
     def do_GET(self):
         if self.path == "/health":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
+            self.send_json_response(json.dumps({"status": "ok"}))
         else:
             self.send_response(404)
             self.end_headers()
@@ -1225,7 +1238,7 @@ class ScrapingServerHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/scrape":
             content_length = int(self.headers.get("Content-Length", 0))
-            post_data = self.rfile.read(content_length)
+            post_data = self.rfile.read(content_length) if content_length > 0 else b""
             stash_req = {}
             cli_args = []
             if post_data:
@@ -1246,26 +1259,20 @@ class ScrapingServerHandler(BaseHTTPRequestHandler):
                 log.error(f"Error during scrape execution: {e}")
                 result_json = json.dumps({"title": f"Scraper error: {e}"})
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            if result_json:
-                self.wfile.write(result_json.encode("utf-8"))
-            else:
-                self.wfile.write(b"{}")
+            if not result_json:
+                result_json = "{}"
+            self.send_json_response(result_json)
         elif self.path == "/clear-cache":
             try:
                 import shutil
                 if CACHE_DIR.exists():
                     shutil.rmtree(CACHE_DIR)
                 msg = json.dumps({"status": "success", "message": "Cache cleared successfully."})
-                self.send_response(200)
+                status = 200
             except Exception as e:
                 msg = json.dumps({"status": "error", "message": str(e)})
-                self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(msg.encode("utf-8"))
+                status = 500
+            self.send_json_response(msg, status=status)
         else:
             self.send_response(404)
             self.end_headers()
