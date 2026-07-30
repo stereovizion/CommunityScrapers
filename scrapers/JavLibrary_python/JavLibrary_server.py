@@ -1237,7 +1237,14 @@ class ScrapingServerHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     log.error(f"Error parsing HTTP payload: {e}")
 
-            result_json = scrape(stash_request=stash_req, args=cli_args, return_output=True)
+            try:
+                result_json = scrape(stash_request=stash_req, args=cli_args, return_output=True)
+            except SystemExit as e:
+                log.warning(f"Scrape executed sys.exit({getattr(e, 'code', e)})")
+                result_json = json.dumps({})
+            except Exception as e:
+                log.error(f"Error during scrape execution: {e}")
+                result_json = json.dumps({"title": f"Scraper error: {e}"})
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
