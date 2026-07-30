@@ -67,10 +67,6 @@ except ModuleNotFoundError:
     log.debug("Selenium not available. Install it for interactive captcha solving: pip install selenium")
 
 
-# GLOBAL VAR ######
-JAV_DOMAIN = "Check"
-###################
-
 COOKIES_FILE = "javlib_cookies.json"
 
 import os
@@ -539,100 +535,57 @@ def is_cloudflare_challenge_solved(driver):
         return False
 
 def bypass_protection(url, retries=4):
-    url_domain = re.sub(r"www\.|\.com", "", urlparse(url).netloc)
-    log.debug("=== Checking Status of Javlib site ===")
+    log.debug("=== Fetching JavLibrary page via Chrome Driver ===")
     response_html = ResponseHTML
-    site = "javlibrary"
-    url_n = url.replace(url_domain, site)
-    cookies = {'over18': '18'}
     try:
-        # Try regular request first
-        response = requests.get(url_n, cookies=cookies, headers=JAV_HEADERS, timeout=10)
-
-        # Check if we got a captcha challenge
-        if response.status_code in (403, 503) or "captcha" in response.text.lower() or "challenge" in response.text.lower():
-            log.warning(f"Captcha/Challenge detected. Attempting interactive solve...")
-            captcha_result = interactive_captcha_solve(url_n)
-
-            if captcha_result:
-                response_html.content = captcha_result['content'].encode('utf-8')
-                response_html.html = captcha_result['content']
-                response_html.status_code = 200
-                response_html.url = captcha_result['url']
-            else:
-                log.error("Interactive captcha solving failed or timed out")
-                return None, None
+        captcha_result = interactive_captcha_solve(url)
+        if captcha_result:
+            response_html.content = captcha_result['content'].encode('utf-8')
+            response_html.html = captcha_result['content']
+            response_html.status_code = 200
+            response_html.url = captcha_result['url']
+            log.info(f"Successfully fetched page via Chrome Driver: {captcha_result['url']}")
+            return response_html
         else:
-            response_html.content = response.content
-            response_html.html = response.text
-            response_html.status_code = response.status_code
-            response_html.url = response.url
-            return site, response_html
-
+            log.error("Chrome Driver fetch failed or timed out")
+            return None
     except Exception as exc_req:
-        log.warning(f"Exception error {exc_req} while checking protection for {site}")
-        if retries == 4:
-            retries = retries -1
-            log.warning(f"Retrying once normally after 7s delay [retries left: {retries}] for site: {site}")
-            time.sleep(7.2)
-            return bypass_protection(url_n, retries)
+        log.warning(f"Exception error {exc_req} while fetching page")
+        if retries > 0:
+            retries -= 1
+            log.warning(f"Retrying fetch via Chrome Driver [retries left: {retries}]")
+            time.sleep(3)
+            return bypass_protection(url, retries)
         else:
-            return None, None
-    if response_html.url == "https://www.javlib.com/maintenance.html":
-        log.error(f"[{site}] Maintenance")
-    elif response_html.url == "https://www.javlibrary.com/maintenance.html":
-        log.error(f"[{site}] Maintenance")
-    elif response_html.status_code != 200:   
-        log.error(f"[{site}] Other issue ({response_html.status_code})")
-    else:
-        log.info(
-                f"[{site}] Using this site for scraping | status code: ({response_html.status_code})"
-            )
-        log.debug("======================================")
-        return site, response_html
-    log.debug("======================================")
-    return None, None
+            return None
 
 
-def send_request(url, head, retries=0, delay=2.5):
-    log.info(f"Sending request to {url}, delay {delay} seconds")
+def send_request(url, head=None, retries=0, delay=2.5):
+    log.info(f"Sending request via Chrome Driver to {url}")
     if retries > 3:
         log.warning(f"Scrape for {url} failed after retrying {retries} times")
         return None
 
-    global JAV_DOMAIN
-
     if delay != 0:
-        log.info(f"Delaying request by {delay} seconds to prevent Cloudflare rate limiting")
+        log.info(f"Delaying request by {delay} seconds")
         time.sleep(delay)
+
     url_domain = re.sub(r"www\.|\.com", "", urlparse(url).netloc)
-    response = None
     if url_domain in SITE_JAVLIB:
-        # Javlib
-        if JAV_DOMAIN == "Check":
-            JAV_DOMAIN, response = bypass_protection(url)
-            if response:
-                return response
-        if JAV_DOMAIN is None:
-            return None
-        url = url.replace(url_domain, JAV_DOMAIN)
-    log.debug(f"[{threading.get_ident()}] Request URL: {url}")
+        response = bypass_protection(url)
+        if response and response.status_code == 200:
+            return response
+        return None
+
     try:
         response = requests.get(url, headers=head, timeout=10)
-    except requests.exceptions.Timeout as exc_timeout:
-        log.warning(f"Timed out {exc_timeout}")
-        return send_request(url, head, retries+1)
+        if response.status_code != 200:
+            log.debug(f"[Request] Error, Status Code: {response.status_code}")
+            response = None
+        return response
     except Exception as exc_req:
         log.error(f"scrape error exception {exc_req}")
-        if delay != 0:
-            error_delay = delay+2.75
-            log.info(f"Delaying request by {error_delay} seconds and retrying")
-            time.sleep(error_delay)
-        return send_request(url, head, retries+1)
-    if response.status_code != 200:
-        log.debug(f"[Request] Error, Status Code: {response.status_code}")
-        response = None
-    return response
+        return None
 
 
 
