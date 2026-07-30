@@ -48,13 +48,10 @@ REMOTE_SERVER_URL = http://127.0.0.1:8000
                 print(res.text)
             else:
                 log.error(f"Remote desktop server returned HTTP {res.status_code}: {res.text}")
-                from JavLibrary_server import scrape
-                scrape(stash_request)
+                sys.exit(1)
         except Exception as e:
             log.error(f"Failed to communicate with remote desktop server at {scrape_url}: {e}")
-            log.info("Falling back to local scraping execution...")
-            from JavLibrary_server import scrape
-            scrape(stash_request)
+            sys.exit(1)
     else:
         from JavLibrary_server import scrape
         scrape(stash_request)
