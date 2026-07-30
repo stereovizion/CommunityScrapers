@@ -218,7 +218,7 @@ JAV_SEARCH_HTML = None
 JAV_MAIN_HTML = None
 
 # scraped output to be sent back to stash
-scrape = {}
+scraped_data = {}
 
 
 # Interactive Captcha Solving
@@ -677,8 +677,8 @@ def cleanup_filename(filename):
     else:
         code = f"{studio.upper()}-{seq_nr}"
     log.info(f"Resulting studio code: {code}")
-    scrape['title'] = f"{code} {' '.join(remaining_parts)}".strip()
-    log.info(f"Resulting title: {scrape['title']}")
+    scraped_data['title'] = f"{code} {' '.join(remaining_parts)}".strip()
+    log.info(f"Resulting title: {scraped_data['title']}")
     # scrape['code'] = code
     return code
 
@@ -919,273 +919,279 @@ def th_imageto_base64(imageurl, typevar):
 
 log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
 
-import hashlib
-import io
 
-stdin_content = sys.stdin.read()
-sys.stdin = io.StringIO(stdin_content)
+def scrape(stash_request=None):
+    global JAV_SEARCH_HTML, JAV_MAIN_HTML, scraped_data, jav_result
+    if stash_request is None:
+        stash_request = {}
 
-fragment_data = {}
-if stdin_content:
-    try:
-        fragment_data = json.loads(stdin_content)
-    except Exception:
-        pass
+    fragment_data = stash_request
 
-# Generate cache filename based on the query prefix and arguments
-query_prefix = get_query_prefix(fragment_data)
-args_suffix = "_".join(sys.argv[1:])
-if args_suffix:
-    cache_filename = f"{query_prefix}_{args_suffix}.json"
-else:
-    cache_filename = f"{query_prefix}.json"
+    # Generate cache filename based on the query prefix and arguments
+    query_prefix = get_query_prefix(fragment_data)
+    args_suffix = "_".join(sys.argv[1:])
+    if args_suffix:
+        cache_filename = f"{query_prefix}_{args_suffix}.json"
+    else:
+        cache_filename = f"{query_prefix}.json"
 
-cached_output = cache_get(cache_filename)
-if cached_output is not None:
-    log.info(f"Returning cached result for {query_prefix}")
-    scene_title_input = fragment_data.get("title")
-    if scene_title_input:
-        cleanup_filename(scene_title_input)
-        clean_title = scrape.get("title")
-        if clean_title:
-            try:
-                data = json.loads(cached_output)
-                if isinstance(data, dict):
-                    data["title"] = clean_title
-                    cached_output = json.dumps(data)
-                elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                    data[0]["title"] = clean_title
-                    cached_output = json.dumps(data)
-            except Exception as e:
-                log.warning(f"Failed to update cached title: {e}")
-    print(cached_output)
-    sys.exit(0)
+    cached_output = cache_get(cache_filename)
+    if cached_output is not None:
+        log.info(f"Returning cached result for {query_prefix}")
+        scene_title_input = fragment_data.get("title")
+        if scene_title_input:
+            cleanup_filename(scene_title_input)
+            clean_title = scraped_data.get("title")
+            if clean_title:
+                try:
+                    data = json.loads(cached_output)
+                    if isinstance(data, dict):
+                        data["title"] = clean_title
+                        cached_output = json.dumps(data)
+                    elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                        data[0]["title"] = clean_title
+                        cached_output = json.dumps(data)
+                except Exception as e:
+                    log.warning(f"Failed to update cached title: {e}")
+        print(cached_output)
+        sys.exit(0)
 
-FRAGMENT = fragment_data
-log.debug(f"[DEBUG] FRAGMENT: {FRAGMENT}")
-# example:
-# {'id': '29', 'title': 'ajvr00244-3-02.mp4', 'url': None, 'urls': [], 'date': None, 'details': '',
-# 'files': [{'id': '29', 'mod_time': '2024-09-30T15:25:22+02:00', 'path': '/run/media/p/AJVR00244/ajvr00244-3-02.mp4',
-# 'fingerprints': [{'type': 'oshash', 'fingerprint': 'e9c272b8125b92c2'}], 'size': 1388427025, 'format': 'mp4',
-# 'width': 4096, 'height': 2048, 'duration': 391.15, 'video_codec': 'h264', 'audio_codec': 'aac', 'frame_rate': 59.94, 'bitrate': 28396936}]}
+    FRAGMENT = fragment_data
+    log.debug(f"[DEBUG] FRAGMENT: {FRAGMENT}")
+    # example:
+    # {'id': '29', 'title': 'ajvr00244-3-02.mp4', 'url': None, 'urls': [], 'date': None, 'details': '',
+    # 'files': [{'id': '29', 'mod_time': '2024-09-30T15:25:22+02:00', 'path': '/run/media/p/AJVR00244/ajvr00244-3-02.mp4',
+    # 'fingerprints': [{'type': 'oshash', 'fingerprint': 'e9c272b8125b92c2'}], 'size': 1388427025, 'format': 'mp4',
+    # 'width': 4096, 'height': 2048, 'duration': 391.15, 'video_codec': 'h264', 'audio_codec': 'aac', 'frame_rate': 59.94, 'bitrate': 28396936}]}
 
-# FRAGMENT = json.loads(r'''{
-#   "name": "LULU-424",
-#   "url": "https://www.javlibrary.com/en/javme3j5ru.html"
-# }''')
+    # FRAGMENT = json.loads(r'''{
+    #   "name": "LULU-424",
+    #   "url": "https://www.javlibrary.com/en/javme3j5ru.html"
+    # }''')
 
-SEARCH_TITLE = FRAGMENT.get("name")
-if SEARCH_TITLE:
-    SEARCH_TITLE = clean_query(SEARCH_TITLE)
-SCENE_URL = FRAGMENT.get("url")
+    SEARCH_TITLE = FRAGMENT.get("name")
+    if SEARCH_TITLE:
+        SEARCH_TITLE = clean_query(SEARCH_TITLE)
+    SCENE_URL = FRAGMENT.get("url")
 
-if FRAGMENT.get("title"):
-    SCENE_TITLE = FRAGMENT["title"]
-    # when all fields are empty, stash passes on the filename as title
-    SCENE_TITLE = cleanup_filename(SCENE_TITLE)
-else:
-    SCENE_TITLE = None
+    if FRAGMENT.get("title"):
+        SCENE_TITLE = FRAGMENT["title"]
+        # when all fields are empty, stash passes on the filename as title
+        SCENE_TITLE = cleanup_filename(SCENE_TITLE)
+    else:
+        SCENE_TITLE = None
 
-if "validSearch" in sys.argv and SCENE_URL is None:
-    sys.exit()
+    if "validSearch" in sys.argv and SCENE_URL is None:
+        sys.exit()
 
-if "searchName" in sys.argv:
-    log.debug(f"Using search with Title: {SEARCH_TITLE}")
-    JAV_SEARCH_HTML = send_request(
-        f"https://www.javlibrary.com/en/vl_searchbyid.php?keyword={SEARCH_TITLE}",
-        JAV_HEADERS,
-        delay=0
-    )
-else:
-    if SCENE_URL:
-        scene_domain = re.sub(r"www\.|\.com", "", urlparse(SCENE_URL).netloc)
-        # Url from Javlib
-        if scene_domain in SITE_JAVLIB:
-            log.debug(f"Using URL: {SCENE_URL}")
-            JAV_MAIN_HTML = send_request(SCENE_URL, JAV_HEADERS, delay=0)
-        else:
-            log.warning(f"The URL is not from JavLibrary ({SCENE_URL})")
-    if JAV_MAIN_HTML is None and SCENE_TITLE:
-        log.debug(f"Using search with Title: {SCENE_TITLE}")
+    if "searchName" in sys.argv:
+        log.debug(f"Using search with Title: {SEARCH_TITLE}")
         JAV_SEARCH_HTML = send_request(
-            f"https://www.javlibrary.com/en/vl_searchbyid.php?keyword={SCENE_TITLE}",
+            f"https://www.javlibrary.com/en/vl_searchbyid.php?keyword={SEARCH_TITLE}",
             JAV_HEADERS,
             delay=0
         )
-
-# XPATH
-jav_xPath_search = {}
-jav_xPath_search[
-    'url'] = '//div[@class="videos"]/div/a[not(contains(@title,"(Blu-ray"))]/@href'
-jav_xPath_search[
-    'title'] = '//div[@class="videos"]/div/a[not(contains(@title,"(Blu-ray"))]/@title'
-jav_xPath_search[
-    'image'] = '//div[@class="videos"]/div/a[not(contains(@title,"(Blu-ray"))]//img/@src'
-
-jav_xPath = {}
-jav_xPath[
-    "code"] = '//td[@class="header" and text()="ID:"]/following-sibling::td/text()'
-# or '//div[@id="video_id"]//td[2][@class="text"]/text()'
-jav_xPath[
-    "title"] = jav_xPath["code"] if LEGACY_FIELDS else '//div[@id="video_title"]/h3/a/text()'
-#There are no actual Details in JavLibrary
-#For legacy reasons we add the Title in Details by default
-jav_xPath[
-    "details"] = None if not LEGACY_FIELDS else '//div[@id="video_title"]/h3/a/text()'
-jav_xPath["url"] = '//meta[@property="og:url"]/@content'
-jav_xPath[
-    "date"] = '//td[@class="header" and text()="Release Date:"]/following-sibling::td/text()'
-jav_xPath[
-    "director"] = '//div[@id="video_director"]//td[@class="text"]/span[@class="director"]/a/text()'
-jav_xPath[
-    "tags"] = '//td[@class="header" and text()="Genre(s):"]'\
-            '/following::td/span[@class="genre"]/a/text()'
-jav_xPath[
-    "performers"] = '//td[@class="header" and text()="Cast:"]'\
-                '/following::td/span[@class="cast"]/span/a/text()'
-jav_xPath[
-    "performers_url"] = '//td[@class="header" and text()="Cast:"]'\
-                        '/following::td/span[@class="cast"]/span/a/@href'
-jav_xPath[
-    "studio"] = '//td[@class="header" and text()="Maker:"]'\
-                '/following-sibling::td/span[@class="maker"]/a/text()'
-#jav_xPath[
-#    "label"] = '//td[@class="header" and text()="Label:"]'\
-#                '/following-sibling::td/span[@class="label"]/a/text()'
-jav_xPath["image"] = '//div[@id="video_jacket"]/img/@src'
-
-jav_result = {}
-
-if "searchName" in sys.argv:
-    if JAV_SEARCH_HTML:
-        if "/en/jav" in JAV_SEARCH_HTML.url:
-            log.debug(f"Scraping the movie page directly ({JAV_SEARCH_HTML.url})")
-            jav_tree = lxml.html.fromstring(JAV_SEARCH_HTML.content)
-            jav_result["title"] = getxpath(jav_xPath["title"], jav_tree)
-            jav_result["details"] = getxpath(jav_xPath["details"], jav_tree)
-            jav_result["url"] = getxpath(jav_xPath["url"], jav_tree)
-            jav_result["image"] = getxpath(jav_xPath["image"], jav_tree)
-            for key, value in jav_result.items():
-                if isinstance(value,list):
-                    jav_result[key] = value[0]
-                if key in ["image", "url"]:
-                    jav_result[key] = f"https:{jav_result[key]}".replace("https:https:", "https:")
-            jav_result = [jav_result]
-        else:
-            jav_result = jav_search_by_name(JAV_SEARCH_HTML, jav_xPath_search)
-        if jav_result:
-            print_and_cache(jav_result, cache_filename)
-        else:
-            print_and_cache([{"title": "The search doesn't return any result."}], cache_filename)
     else:
-        print_and_cache([{
-            "title": "The request has failed to get the page. Check log."
-        }], cache_filename)
-    sys.exit()
-
-if JAV_SEARCH_HTML:
-    JAV_MAIN_HTML = jav_search(JAV_SEARCH_HTML, jav_xPath_search)
-
-if JAV_MAIN_HTML:
-    #log.debug("[DEBUG] Javlibrary Page ({})".format(JAV_MAIN_HTML.url))
-    jav_tree = lxml.html.fromstring(JAV_MAIN_HTML.content)
-    # is not None for removing the FutureWarning...
-    if jav_tree is not None:
-        # Get data from javlibrary
-        for key, value in jav_xPath.items():
-            jav_result[key] = getxpath(value, jav_tree)
-        # PostProcess
-        if jav_result.get("image"):
-            tmp = re.sub(r"(http:|https:)", "", jav_result["image"][0])
-            jav_result["image"] = "https:" + tmp
-            if "now_printing.jpg" in jav_result[
-                    "image"] or "noimage" in jav_result["image"]:
-                # https://pics.dmm.com/mono/movie/n/now_printing/now_printing.jpg
-                # https://pics.dmm.co.jp/mono/noimage/movie/adult_ps.jpg
-                log.debug(
-                    "[Warning][Javlibrary] Image was deleted or failed to load "\
-                    f"({jav_result['image']})"
-                )
-                jav_result["image"] = None
+        if SCENE_URL:
+            scene_domain = re.sub(r"www\.|\.com", "", urlparse(SCENE_URL).netloc)
+            # Url from Javlib
+            if scene_domain in SITE_JAVLIB:
+                log.debug(f"Using URL: {SCENE_URL}")
+                JAV_MAIN_HTML = send_request(SCENE_URL, JAV_HEADERS, delay=0)
             else:
-                imageBase64_jav_thread = threading.Thread(
-                    target=th_imageto_base64,
+                log.warning(f"The URL is not from JavLibrary ({SCENE_URL})")
+        if JAV_MAIN_HTML is None and SCENE_TITLE:
+            log.debug(f"Using search with Title: {SCENE_TITLE}")
+            JAV_SEARCH_HTML = send_request(
+                f"https://www.javlibrary.com/en/vl_searchbyid.php?keyword={SCENE_TITLE}",
+                JAV_HEADERS,
+                delay=0
+            )
+
+    # XPATH
+    jav_xPath_search = {}
+    jav_xPath_search[
+        'url'] = '//div[@class="videos"]/div/a[not(contains(@title,"(Blu-ray"))]/@href'
+    jav_xPath_search[
+        'title'] = '//div[@class="videos"]/div/a[not(contains(@title,"(Blu-ray"))]/@title'
+    jav_xPath_search[
+        'image'] = '//div[@class="videos"]/div/a[not(contains(@title,"(Blu-ray"))]//img/@src'
+
+    jav_xPath = {}
+    jav_xPath[
+        "code"] = '//td[@class="header" and text()="ID:"]/following-sibling::td/text()'
+    # or '//div[@id="video_id"]//td[2][@class="text"]/text()'
+    jav_xPath[
+        "title"] = jav_xPath["code"] if LEGACY_FIELDS else '//div[@id="video_title"]/h3/a/text()'
+    #There are no actual Details in JavLibrary
+    #For legacy reasons we add the Title in Details by default
+    jav_xPath[
+        "details"] = None if not LEGACY_FIELDS else '//div[@id="video_title"]/h3/a/text()'
+    jav_xPath["url"] = '//meta[@property="og:url"]/@content'
+    jav_xPath[
+        "date"] = '//td[@class="header" and text()="Release Date:"]/following-sibling::td/text()'
+    jav_xPath[
+        "director"] = '//div[@id="video_director"]//td[@class="text"]/span[@class="director"]/a/text()'
+    jav_xPath[
+        "tags"] = '//td[@class="header" and text()="Genre(s):"]'\
+                '/following::td/span[@class="genre"]/a/text()'
+    jav_xPath[
+        "performers"] = '//td[@class="header" and text()="Cast:"]'\
+                    '/following::td/span[@class="cast"]/span/a/text()'
+    jav_xPath[
+        "performers_url"] = '//td[@class="header" and text()="Cast:"]'\
+                            '/following::td/span[@class="cast"]/span/a/@href'
+    jav_xPath[
+        "studio"] = '//td[@class="header" and text()="Maker:"]'\
+                    '/following-sibling::td/span[@class="maker"]/a/text()'
+    #jav_xPath[
+    #    "label"] = '//td[@class="header" and text()="Label:"]'\
+    #                '/following-sibling::td/span[@class="label"]/a/text()'
+    jav_xPath["image"] = '//div[@id="video_jacket"]/img/@src'
+
+    jav_result = {}
+
+    if "searchName" in sys.argv:
+        if JAV_SEARCH_HTML:
+            if "/en/jav" in JAV_SEARCH_HTML.url:
+                log.debug(f"Scraping the movie page directly ({JAV_SEARCH_HTML.url})")
+                jav_tree = lxml.html.fromstring(JAV_SEARCH_HTML.content)
+                jav_result["title"] = getxpath(jav_xPath["title"], jav_tree)
+                jav_result["details"] = getxpath(jav_xPath["details"], jav_tree)
+                jav_result["url"] = getxpath(jav_xPath["url"], jav_tree)
+                jav_result["image"] = getxpath(jav_xPath["image"], jav_tree)
+                for key, value in jav_result.items():
+                    if isinstance(value,list):
+                        jav_result[key] = value[0]
+                    if key in ["image", "url"]:
+                        jav_result[key] = f"https:{jav_result[key]}".replace("https:https:", "https:")
+                jav_result = [jav_result]
+            else:
+                jav_result = jav_search_by_name(JAV_SEARCH_HTML, jav_xPath_search)
+            if jav_result:
+                print_and_cache(jav_result, cache_filename)
+            else:
+                print_and_cache([{"title": "The search doesn't return any result."}], cache_filename)
+        else:
+            print_and_cache([{
+                "title": "The request has failed to get the page. Check log."
+            }], cache_filename)
+        sys.exit()
+
+    if JAV_SEARCH_HTML:
+        JAV_MAIN_HTML = jav_search(JAV_SEARCH_HTML, jav_xPath_search)
+
+    if JAV_MAIN_HTML:
+        #log.debug("[DEBUG] Javlibrary Page ({})".format(JAV_MAIN_HTML.url))
+        jav_tree = lxml.html.fromstring(JAV_MAIN_HTML.content)
+        # is not None for removing the FutureWarning...
+        if jav_tree is not None:
+            # Get data from javlibrary
+            for key, value in jav_xPath.items():
+                jav_result[key] = getxpath(value, jav_tree)
+            # PostProcess
+            if jav_result.get("image"):
+                tmp = re.sub(r"(http:|https:)", "", jav_result["image"][0])
+                jav_result["image"] = "https:" + tmp
+                if "now_printing.jpg" in jav_result[
+                        "image"] or "noimage" in jav_result["image"]:
+                    # https://pics.dmm.com/mono/movie/n/now_printing/now_printing.jpg
+                    # https://pics.dmm.co.jp/mono/noimage/movie/adult_ps.jpg
+                    log.debug(
+                        "[Warning][Javlibrary] Image was deleted or failed to load "\
+                        f"({jav_result['image']})"
+                    )
+                    jav_result["image"] = None
+                else:
+                    imageBase64_jav_thread = threading.Thread(
+                        target=th_imageto_base64,
+                        args=(
+                            jav_result["image"],
+                            "JAV",
+                        ))
+                    imageBase64_jav_thread.start()
+            if jav_result.get("url"):
+                jav_result["url"] = "https:" + jav_result["url"][0]
+            if jav_result.get("details") and LEGACY_FIELDS:
+                jav_result["details"] = re.sub(r"^(.*? ){1}", "",
+                                               jav_result["details"][0])
+            if jav_result.get("title"):
+                if LEGACY_FIELDS or KEEP_CODE_IN_TITLE:
+                    jav_result["title"] = jav_result["title"][0]
+                elif not KEEP_CODE_IN_TITLE:
+                    jav_result["title"] = (re.sub(jav_result['code'][0], "",
+                                                jav_result["title"][0])).lstrip()
+            if jav_result.get("director"):
+                jav_result["director"] = jav_result["director"][0]
+            #if jav_result.get("label"):
+            #    jav_result["label"] = jav_result["label"][0]
+            if jav_result.get("performers_url") and IGNORE_ALIASES is False:
+                javlibrary_aliases_thread = threading.Thread(
+                    target=th_request_perfpage,
                     args=(
-                        jav_result["image"],
-                        "JAV",
+                        JAV_MAIN_HTML.url,
+                        jav_result["performers_url"],
                     ))
-                imageBase64_jav_thread.start()
-        if jav_result.get("url"):
-            jav_result["url"] = "https:" + jav_result["url"][0]
-        if jav_result.get("details") and LEGACY_FIELDS:
-            jav_result["details"] = re.sub(r"^(.*? ){1}", "",
-                                           jav_result["details"][0])
-        if jav_result.get("title"):
-            if LEGACY_FIELDS or KEEP_CODE_IN_TITLE:
-                jav_result["title"] = jav_result["title"][0]
-            elif not KEEP_CODE_IN_TITLE:
-                jav_result["title"] = (re.sub(jav_result['code'][0], "",
-                                            jav_result["title"][0])).lstrip()
-        if jav_result.get("director"):
-            jav_result["director"] = jav_result["director"][0]
-        #if jav_result.get("label"):
-        #    jav_result["label"] = jav_result["label"][0]
-        if jav_result.get("performers_url") and IGNORE_ALIASES is False:
-            javlibrary_aliases_thread = threading.Thread(
-                target=th_request_perfpage,
-                args=(
-                    JAV_MAIN_HTML.url,
-                    jav_result["performers_url"],
-                ))
-            javlibrary_aliases_thread.daemon = True
-            javlibrary_aliases_thread.start()
+                javlibrary_aliases_thread.daemon = True
+                javlibrary_aliases_thread.start()
 
-if JAV_MAIN_HTML is None:
-    log.info("No results found")
-    print_and_cache({}, cache_filename)
-    sys.exit()
+    if JAV_MAIN_HTML is None:
+        log.info("No results found")
+        print_and_cache({}, cache_filename)
+        sys.exit()
 
-log.debug('[JAV] {}'.format(jav_result))
+    log.debug('[JAV] {}'.format(jav_result))
 
-# DVD code
-scrape['code'] = next(iter(jav_result.get('code', [])))
-# when using SCENE_TITLE (filename when all fields are empty), the title has already been set when parsing the filename
-if 'title' not in scrape:
-    scrape['title'] = jav_result.get('title')
-scrape['date'] = next(iter(jav_result.get('date', [])))
-scrape['director'] = jav_result.get('director') or None
-scrape['url'] = jav_result.get('url')
-scrape['details'] = cleanup_details2(jav_result.get('details', ""))
-scrape['studio'] = {
-    'name': next(iter(jav_result.get('studio', []))),
-}
-#scrape['label'] = {
-#    'name': jav_result.get('label'),
-#}
+    # DVD code
+    scraped_data['code'] = next(iter(jav_result.get('code', [])))
+    # when using SCENE_TITLE (filename when all fields are empty), the title has already been set when parsing the filename
+    if 'title' not in scraped_data:
+        scraped_data['title'] = jav_result.get('title')
+    scraped_data['date'] = next(iter(jav_result.get('date', [])))
+    scraped_data['director'] = jav_result.get('director') or None
+    scraped_data['url'] = jav_result.get('url')
+    scraped_data['details'] = cleanup_details2(jav_result.get('details', ""))
+    scraped_data['studio'] = {
+        'name': next(iter(jav_result.get('studio', []))),
+    }
+    #scraped_data['label'] = {
+    #    'name': jav_result.get('label'),
+    #}
 
-if WAIT_FOR_ALIASES and not IGNORE_ALIASES:
+    if WAIT_FOR_ALIASES and not IGNORE_ALIASES:
+        try:
+            if javlibrary_aliases_thread.is_alive():
+                javlibrary_aliases_thread.join()
+        except NameError:
+            log.debug("No Jav Aliases Thread")
+    scraped_data['performers'] = buildlist_tagperf(jav_result, "perf_jav")
+
+    if RETURN_TAGS:
+        scraped_data['tags'] = buildlist_tagperf(jav_result.get('tags', []), "tags")
+        scraped_data['tags'] = [
+            {
+                "name": tag_name.strip()
+            } for tag_dict in scraped_data['tags']
+            for tag_name in tag_dict["name"].replace('·', ',').split(",")
+        ]
+
     try:
-        if javlibrary_aliases_thread.is_alive():
-            javlibrary_aliases_thread.join()
+        if imageBase64_jav_thread.is_alive() is True:
+            imageBase64_jav_thread.join()
+        if jav_result.get('image'):
+            scraped_data['image'] = jav_result['image']
     except NameError:
-        log.debug("No Jav Aliases Thread")
-scrape['performers'] = buildlist_tagperf(jav_result, "perf_jav")
+        log.debug("No image JAV Thread")
 
-if RETURN_TAGS:
-    scrape['tags'] = buildlist_tagperf(jav_result.get('tags', []), "tags")
-    scrape['tags'] = [
-        {
-            "name": tag_name.strip()
-        } for tag_dict in scrape['tags']
-        for tag_name in tag_dict["name"].replace('·', ',').split(",")
-    ]
+    print_and_cache(scraped_data, cache_filename)
 
-try:
-    if imageBase64_jav_thread.is_alive() is True:
-        imageBase64_jav_thread.join()
-    if jav_result.get('image'):
-        scrape['image'] = jav_result['image']
-except NameError:
-    log.debug("No image JAV Thread")
 
-print_and_cache(scrape, cache_filename)
+if __name__ == "__main__":
+    stdin_content = sys.stdin.read()
+    stash_request = {}
+    if stdin_content:
+        try:
+            stash_request = json.loads(stdin_content)
+        except Exception:
+            pass
+    scrape(stash_request)
