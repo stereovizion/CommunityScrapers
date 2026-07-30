@@ -48,11 +48,11 @@ class TestOfflineCleanup(unittest.TestCase):
         cleanup_filename = namespace["cleanup_filename"]
         for filename_input, expected_code, expected_title in FILENAME_SCRAPE_TEST_CASES:
             with self.subTest(filename_input=filename_input, expected_code=expected_code, expected_title=expected_title):
-                # Reset scrape dictionary
-                namespace["scrape"] = {}
+                # Reset scraped_data dictionary
+                namespace["scraped_data"] = {}
                 code = cleanup_filename(filename_input)
                 self.assertEqual(code, expected_code)
-                self.assertEqual(namespace["scrape"].get("title"), expected_title)
+                self.assertEqual(namespace["scraped_data"].get("title"), expected_title)
 
 class TestOnlineCache(unittest.TestCase):
     @classmethod
