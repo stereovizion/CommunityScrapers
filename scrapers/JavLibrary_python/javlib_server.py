@@ -94,6 +94,8 @@ IGNORE_ALIASES = False
 WAIT_FOR_ALIASES = False
 SITE_JAVLIB = ["javlibrary"]
 
+scrape = {}
+
 BANNED_WORDS = {
     "A******ation": "Asphyxiation", "A*****t": "Assault", "A*****ts": "Assaults",
     "A*****ted": "Assaulted", "A*****ting": "Assaulting", "A****p": "Asleep",
@@ -714,8 +716,14 @@ def run_scraper(argv, stdin_data):
             if scene_title_input:
                 clean_code = cleanup_filename(scene_title_input)
                 if isinstance(data, dict):
-                    parts = re.split(r'[-_ ]', os.path.splitext(scene_title_input)[0])
-                    tp = [p for p in parts if p.lower() in ("cut", "8k", "2") or clean_query(p) == clean_code]
+                    t_input = scene_title_input.split("@", 1)[1] if "@" in scene_title_input else scene_title_input
+                    parts = re.split(r'[-_ ]', os.path.splitext(t_input)[0])
+                    tp = []
+                    for p in parts:
+                        if clean_query(p) == clean_code:
+                            tp.append(clean_code)
+                        elif p.lower() != '8k':
+                            tp.append(p)
                     data["title"] = " ".join(tp) if tp else clean_code
                     return data
             return data
@@ -802,11 +810,10 @@ def run_scraper(argv, stdin_data):
                 tmp = re.sub(r"(http:|https:)", "", jav_result["image"][0])
                 jav_result["image"] = "https:" + tmp
 
-    scrape = {}
     if jav_result.get('code'):
         scrape['code'] = jav_result['code'][0]
-    if jav_result.get('title'):
-        scrape['title'] = jav_result['title'][0] if isinstance(jav_result['title'], list) else jav_result['title']
+    if 'title' not in scrape:
+        scrape['title'] = jav_result.get('title')
     if jav_result.get('date'):
         scrape['date'] = jav_result['date'][0]
     if jav_result.get('director'):

@@ -7,10 +7,74 @@ or runs the scraping engine in-process by loading javlib_server when REMOTE_SERV
 import configparser
 import json
 import os
+import re
 import sys
+import threading
 import urllib.request
 import urllib.parse
 from pathlib import Path
+
+try:
+    from py_common import log
+except ModuleNotFoundError:
+    class DummyLog:
+        def info(self, msg): print(f" i  {msg}", file=sys.stderr)
+        def debug(self, msg): print(f" d  {msg}", file=sys.stderr)
+        def warning(self, msg): print(f" w  {msg}", file=sys.stderr)
+        def error(self, msg): print(f" e  {msg}", file=sys.stderr)
+    log = DummyLog()
+
+try:
+    from javlib_server import (
+        run_scraper, cache_get, cache_save, cleanup_title,
+        jav_search, jav_search_by_name
+    )
+    import javlib_server
+except ImportError:
+    javlib_server = None
+
+scrape = {}
+
+def clean_query(query):
+    if javlib_server:
+        return javlib_server.clean_query(query)
+    return query
+
+def cleanup_filename(filename):
+    if filename is None:
+        return filename
+    log.info(f"Starting filename cleanup for: {filename}")
+    if "@" in filename:
+        filename = filename.split("@", 1)[1]
+        log.info(f"Stripped @ prefix. New filename: {filename}")
+    filename = os.path.splitext(filename)[0]
+    parts = re.split(r'[-_ ]', filename)
+    combomatch = re.match(r'^\d*([A-Za-z]+)(\d+)', parts[0])
+    if combomatch:
+        studio = combomatch.group(1)
+        seq_nr = combomatch.group(2)
+        remaining_parts = parts[1:]
+    else:
+        if len(parts) >= 2:
+            studio = parts[0]
+            seq_nr = parts[1]
+            remaining_parts = parts[2:]
+        else:
+            return filename
+    if studio == '' or seq_nr == '':
+        return filename
+    remaining_parts = [p for p in remaining_parts if p.lower() != '8k']
+    stripped = seq_nr.lstrip('0')
+    if len(stripped) >= 3:
+        code = f"{studio.upper()}-{stripped}"
+    else:
+        code = f"{studio.upper()}-{seq_nr}"
+    log.info(f"Resulting studio code: {code}")
+    scrape['title'] = f"{code} {' '.join(remaining_parts)}".strip()
+    log.info(f"Resulting title: {scrape['title']}")
+    return code
+
+log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")
 
 # Handle --clear-cache flag early
 CACHE_DIR = Path(__file__).parent / ".javlibrary_cache"
@@ -93,18 +157,6 @@ else:
     # -------------------------------------------------------------
     # LOCAL IN-PROCESS MODE (Lazy import of scraping engine)
     # -------------------------------------------------------------
-    try:
-        from javlib_server import (
-            run_scraper, clean_query, get_query_prefix, cache_get, cache_save,
-            cleanup_filename, cleanup_title, jav_search, jav_search_by_name,
-            log, scrape
-        )
-    except ModuleNotFoundError as e:
-        print(f"Error loading scraping engine: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    log.debug(f"[DEBUG] Main Thread: {os.getpid()}")
-
     result = run_scraper(sys.argv, stdin_data)
     print(json.dumps(result))
     sys.exit(0)
