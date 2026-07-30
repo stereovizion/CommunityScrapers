@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import requests
 from pathlib import Path
@@ -34,6 +35,9 @@ REMOTE_SERVER_URL = http://127.0.0.1:8000
             pass
 
     remote_enabled = getattr(config, "REMOTE_SERVER_ENABLED", False)
+    if os.environ.get("JAVLIB_FORCE_LOCAL", "").lower() in ("1", "true"):
+        remote_enabled = False
+
     if remote_enabled:
         remote_url = getattr(config, "REMOTE_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
         scrape_url = f"{remote_url}/scrape"
@@ -43,7 +47,7 @@ REMOTE_SERVER_URL = http://127.0.0.1:8000
             "args": sys.argv[1:]
         }
         try:
-            res = requests.post(scrape_url, json=payload, timeout=300)
+            res = requests.post(scrape_url, json=payload, headers={"Connection": "close"}, timeout=300)
             if res.status_code == 200:
                 print(res.text)
             else:
