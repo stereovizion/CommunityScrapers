@@ -42,8 +42,19 @@ REMOTE_SERVER_URL = http://127.0.0.1:8000
             "stash_request": stash_request,
             "args": sys.argv[1:]
         }
-        res = requests.post(scrape_url, json=payload)
-        print(res.text)
+        try:
+            res = requests.post(scrape_url, json=payload, timeout=300)
+            if res.status_code == 200:
+                print(res.text)
+            else:
+                log.error(f"Remote desktop server returned HTTP {res.status_code}: {res.text}")
+                from JavLibrary_server import scrape
+                scrape(stash_request)
+        except Exception as e:
+            log.error(f"Failed to communicate with remote desktop server at {scrape_url}: {e}")
+            log.info("Falling back to local scraping execution...")
+            from JavLibrary_server import scrape
+            scrape(stash_request)
     else:
         from JavLibrary_server import scrape
         scrape(stash_request)
