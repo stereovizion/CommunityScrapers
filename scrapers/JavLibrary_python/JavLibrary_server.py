@@ -570,22 +570,10 @@ def send_request(url, head=None, retries=0, delay=2.5):
         log.info(f"Delaying request by {delay} seconds")
         time.sleep(delay)
 
-    url_domain = re.sub(r"www\.|\.com", "", urlparse(url).netloc)
-    if url_domain in SITE_JAVLIB:
-        response = bypass_protection(url)
-        if response and response.status_code == 200:
-            return response
-        return None
-
-    try:
-        response = requests.get(url, headers=head, timeout=10)
-        if response.status_code != 200:
-            log.debug(f"[Request] Error, Status Code: {response.status_code}")
-            response = None
+    response = bypass_protection(url)
+    if response and response.status_code == 200:
         return response
-    except Exception as exc_req:
-        log.error(f"scrape error exception {exc_req}")
-        return None
+    return None
 
 
 
