@@ -62,6 +62,7 @@ class TestOnlineCache(unittest.TestCase):
         cls.env = os.environ.copy()
         # Ensure PYTHONPATH points to scrapers directory so py_common is found
         cls.env["PYTHONPATH"] = str(Path(__file__).parent.parent)
+        cls.env["JAVLIB_FORCE_LOCAL"] = "1"
 
     def setUp(self):
         # Clear cache before each test
