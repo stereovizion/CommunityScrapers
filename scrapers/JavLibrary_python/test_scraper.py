@@ -9,8 +9,8 @@ from pathlib import Path
 # Add parent directory to sys.path so py_common is found during exec() imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Dynamic load of JavLibrary_python functions without running its main block
-script_path = Path(__file__).parent / "JavLibrary_python.py"
+# Dynamic load of JavLibrary_server functions without running its main block
+script_path = Path(__file__).parent / "JavLibrary_server.py"
 namespace = {"__file__": str(script_path)}
 script_code = script_path.read_text(encoding='utf-8')
 marker = 'log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")'
@@ -57,7 +57,7 @@ class TestOfflineCleanup(unittest.TestCase):
 class TestOnlineCache(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.script_path = script_path
+        cls.script_path = Path(__file__).parent / "JavLibrary_python.py"
         cls.cache_dir = Path(__file__).parent / ".javlibrary_cache"
         cls.env = os.environ.copy()
         # Ensure PYTHONPATH points to scrapers directory so py_common is found
