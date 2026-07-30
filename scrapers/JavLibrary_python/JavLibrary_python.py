@@ -683,45 +683,6 @@ def cleanup_filename(filename):
     # scrape['code'] = code
     return code
 
-def cleanup_details(details):
-    """
-    Remove common Japanese prefixes from details.
-
-    Examples:
-        "【VR】 Some title" -> "Some title"
-        "【8K】 Some title" -> "Some title"
-        "【4K】【VR】 Some title" -> "Some title"
-    """
-    if details is None:
-        return details
-
-    log.info(f"Starting details cleanup for: {details}")
-
-    # List of prefixes to remove (with optional spaces/brackets)
-    prefixes_to_remove = [
-        r'【VR】\s*',
-        r'【8K】\s*',
-        r'【4K】\s*',
-        r'【HD】\s*',
-        r'【FHD】\s*',
-        r'【UHD】\s*',
-        r'【3D】\s*',
-        r'【2D】\s*',
-        r'【AI】\s*',
-        # Add more prefixes as needed
-    ]
-
-    cleaned_details = details
-    for prefix in prefixes_to_remove:
-        if re.search(prefix, cleaned_details):
-            cleaned_details = re.sub(f'^{prefix}', '', cleaned_details).strip()
-            log.debug(f"Removed prefix matching: {prefix}")
-
-    if cleaned_details != details:
-        log.info(f"Details cleaned from: {details} -> {cleaned_details}")
-
-    return cleaned_details
-
 def cleanup_details2(details):
     """
     Remove common Japanese prefixes and format details.
