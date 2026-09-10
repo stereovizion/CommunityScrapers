@@ -1110,16 +1110,16 @@ def scrape(stash_request=None, args=None, return_output=False):
     log.debug('[JAV] {}'.format(jav_result))
 
     # DVD code
-    scraped_data['code'] = next(iter(jav_result.get('code', [])))
+    scraped_data['code'] = next(iter(jav_result.get('code', [])), None)
     # when using SCENE_TITLE (filename when all fields are empty), the title has already been set when parsing the filename
     if 'title' not in scraped_data:
         scraped_data['title'] = jav_result.get('title')
-    scraped_data['date'] = next(iter(jav_result.get('date', [])))
+    scraped_data['date'] = next(iter(jav_result.get('date', [])), None)
     scraped_data['director'] = jav_result.get('director') or None
     scraped_data['url'] = jav_result.get('url')
     scraped_data['details'] = cleanup_details2(jav_result.get('details', ""))
     scraped_data['studio'] = {
-        'name': next(iter(jav_result.get('studio', []))),
+        'name': next(iter(jav_result.get('studio', [])), None),
     }
     #scraped_data['label'] = {
     #    'name': jav_result.get('label'),
