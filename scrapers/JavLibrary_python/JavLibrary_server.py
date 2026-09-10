@@ -640,16 +640,17 @@ def cleanup_details2(details):
     """
     Remove common Japanese prefixes and format details.
 
-    Handles multiple prefixes and variations.
+    Handles multiple prefixes and variations, including leading bracket groups
+    (full-width 【…】 and ASCII […], e.g. "[8K]" / "[VR]").
     """
     if details is None or details == "":
         return details
 
     log.info(f"Starting details cleanup for: {details}")
 
-    # Remove all Japanese bracket prefixes at the start
-    # Matches: 【anything】 repeated one or more times
-    cleaned_details = re.sub(r'^(【[^】]*】\s*)+', '', details).strip()
+    # Remove all leading bracket-group prefixes: full-width 【…】 and ASCII […],
+    # one or more in a row (e.g. "【MOODYZ】[8K][VR] Title" -> "Title").
+    cleaned_details = re.sub(r'^((?:【[^】]*】|\[[^\]]*\])\s*)+', '', details).strip()
 
     # other more specific prefixes to remove
     prefixes_to_remove = [
