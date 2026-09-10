@@ -58,5 +58,14 @@ REMOTE_SERVER_URL = http://127.0.0.1:8000
             sys.exit(1)
     else:
         from JavLibrary_server import scrape
-        scrape(stash_request)
+        try:
+            scrape(stash_request)
+        except SystemExit:
+            raise
+        except Exception as e:
+            # Never let an exception reach Stash as empty stdout ("could not
+            # unmarshal json from script output: EOF") - emit a valid empty result.
+            log.error(f"Scrape failed: {e}")
+            print("{}")
+            sys.exit(0)
 
