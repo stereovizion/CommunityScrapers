@@ -1264,7 +1264,13 @@ if __name__ == "__main__":
             except Exception as e:
                 log.error(f"Could not parse stdin as JSON ({e}); got: {stdin_content[:200]!r}")
                 stash_request = {}
-            scrape(stash_request)
+            try:
+                scrape(stash_request)
+            except SystemExit:
+                raise
+            except Exception as e:
+                log.error(f"Scrape failed: {e}")
+                print("{}")
             sys.exit(0)
 
     run_server(host=host, port=port)
