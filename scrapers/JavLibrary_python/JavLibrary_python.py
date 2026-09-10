@@ -31,8 +31,8 @@ REMOTE_SERVER_URL = http://127.0.0.1:8000
     if stdin_content:
         try:
             stash_request = json.loads(stdin_content)
-        except Exception:
-            pass
+        except Exception as e:
+            log.error(f"Could not parse stdin as JSON ({e}); got: {stdin_content[:200]!r}")
 
     remote_enabled = getattr(config, "REMOTE_SERVER_ENABLED", False)
     if os.environ.get("JAVLIB_FORCE_LOCAL", "").lower() in ("1", "true"):
