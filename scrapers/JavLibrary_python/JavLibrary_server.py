@@ -220,6 +220,13 @@ JAV_MAIN_HTML = None
 # scraped output to be sent back to stash
 scraped_data = {}
 
+# scrape() relies on module-level globals (scraped_data, jav_result, JAV_*_HTML)
+# and drives a single shared Chrome instance, so it is not safe to run
+# concurrently. The HTTP server stays threaded (so /health keeps responding
+# while a scrape is in progress), but every call into scrape() is serialized
+# through this lock.
+SCRAPE_LOCK = threading.Lock()
+
 
 # Interactive Captcha Solving
 INTERACTIVE_CAPTCHA = True  # Set to False to disable interactive captcha solving
@@ -1188,6 +1195,9 @@ class ScrapingServerHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     log.error(f"Error parsing HTTP payload: {e}")
 
+            if not SCRAPE_LOCK.acquire(blocking=False):
+                log.info("Another scrape is already running; waiting for it to finish (single shared Chrome instance)...")
+                SCRAPE_LOCK.acquire()
             try:
                 result_json = scrape(stash_request=stash_req, args=cli_args, return_output=True)
             except SystemExit as e:
@@ -1196,6 +1206,8 @@ class ScrapingServerHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 log.error(f"Error during scrape execution: {e}")
                 result_json = json.dumps({"title": f"Scraper error: {e}"})
+            finally:
+                SCRAPE_LOCK.release()
 
             if not result_json:
                 result_json = "{}"
