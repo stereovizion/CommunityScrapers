@@ -898,7 +898,7 @@ def scrape(stash_request=None, args=None, return_output=False):
         cache_filename = f"{query_prefix}.json"
 
     cached_output = cache_get(cache_filename)
-    if cached_output is not None:
+    if cached_output:
         log.info(f"Returning cached result for {query_prefix}")
         scene_title_input = fragment_data.get("title")
         if scene_title_input:
