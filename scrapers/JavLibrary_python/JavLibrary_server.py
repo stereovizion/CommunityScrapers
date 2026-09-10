@@ -1261,7 +1261,8 @@ if __name__ == "__main__":
         if stdin_content.strip():
             try:
                 stash_request = json.loads(stdin_content)
-            except Exception:
+            except Exception as e:
+                log.error(f"Could not parse stdin as JSON ({e}); got: {stdin_content[:200]!r}")
                 stash_request = {}
             scrape(stash_request)
             sys.exit(0)
