@@ -127,3 +127,9 @@ Run the test suite to verify filename parsing, clean queries, and caching:
 ```bash
 python3 test_scraper.py
 ```
+
+This includes the online cache tests (`TestOnlineCache`), which scrape the live site. They need network access, may open Chrome for a captcha, and can take several minutes. To run only the offline tests (filename parsing and details cleanup):
+
+```bash
+python3 -m unittest test_scraper.TestOfflineCleanup
+```
