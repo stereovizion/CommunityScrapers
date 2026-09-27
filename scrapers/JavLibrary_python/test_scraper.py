@@ -9,8 +9,8 @@ from pathlib import Path
 # Add parent directory to sys.path so py_common is found during exec() imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Dynamic load of JavLibrary_python functions without running its main block
-script_path = Path(__file__).parent / "JavLibrary_python.py"
+# Dynamic load of JavLibrary_server functions without running its main block
+script_path = Path(__file__).parent / "JavLibrary_server.py"
 namespace = {"__file__": str(script_path)}
 script_code = script_path.read_text(encoding='utf-8')
 marker = 'log.debug(f"[DEBUG] Main Thread: {threading.get_ident()}")'
@@ -37,6 +37,18 @@ FILENAME_SCRAPE_TEST_CASES = [
     ("4k2.me@1sbgvr00002_2_8k_cut_1.mp4", "SBGVR-00002", "SBGVR-00002 2 cut 1"),
 ]
 
+DETAILS_CLEANUP_TEST_CASES = [
+    # (input_details, expected_clean_details)
+    ("[8K] Some movie title", "Some movie title"),
+    ("[VR] Some movie title", "Some movie title"),
+    ("[8K][VR] Some movie title", "Some movie title"),
+    ("[8K] [VR] Some movie title", "Some movie title"),
+    ("【MOODYZ】[8K] Some movie title", "Some movie title"),
+    ("[8KVR]【VR】 Some movie title", "Some movie title"),
+    ("8K Some movie title", "Some movie title"),   # existing bare-token rule still applies
+    ("Some movie title", "Some movie title"),      # nothing to strip
+]
+
 class TestOfflineCleanup(unittest.TestCase):
     def test_clean_query_cases(self):
         clean_query = namespace["clean_query"]
@@ -48,20 +60,27 @@ class TestOfflineCleanup(unittest.TestCase):
         cleanup_filename = namespace["cleanup_filename"]
         for filename_input, expected_code, expected_title in FILENAME_SCRAPE_TEST_CASES:
             with self.subTest(filename_input=filename_input, expected_code=expected_code, expected_title=expected_title):
-                # Reset scrape dictionary
-                namespace["scrape"] = {}
+                # Reset scraped_data dictionary
+                namespace["scraped_data"] = {}
                 code = cleanup_filename(filename_input)
                 self.assertEqual(code, expected_code)
-                self.assertEqual(namespace["scrape"].get("title"), expected_title)
+                self.assertEqual(namespace["scraped_data"].get("title"), expected_title)
+
+    def test_details_cleanup_cases(self):
+        cleanup_details2 = namespace["cleanup_details2"]
+        for details_input, expected in DETAILS_CLEANUP_TEST_CASES:
+            with self.subTest(details_input=details_input, expected=expected):
+                self.assertEqual(cleanup_details2(details_input), expected)
 
 class TestOnlineCache(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.script_path = script_path
+        cls.script_path = Path(__file__).parent / "JavLibrary_python.py"
         cls.cache_dir = Path(__file__).parent / ".javlibrary_cache"
         cls.env = os.environ.copy()
         # Ensure PYTHONPATH points to scrapers directory so py_common is found
         cls.env["PYTHONPATH"] = str(Path(__file__).parent.parent)
+        cls.env["JAVLIB_FORCE_LOCAL"] = "1"
 
     def setUp(self):
         # Clear cache before each test

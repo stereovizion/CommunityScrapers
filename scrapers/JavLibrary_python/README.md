@@ -1,0 +1,135 @@
+# JavLibrary Python Scraper
+
+A Stash Community Scraper plugin for **JavLibrary** with interactive Cloudflare/CAPTCHA handling, persistent cookie storage, caching, and a modular Client/Server architecture.
+
+---
+
+## Architecture & Modes
+
+The scraper supports two execution modes via `config.ini`:
+
+1. **Local Mode** (`REMOTE_SERVER_ENABLED = False`, default):
+   - Stash runs `JavLibrary_python.py` on each scraping task.
+   - `JavLibrary_python.py` dynamically loads `JavLibrary_server.py` and executes scraping locally.
+
+2. **Client/Server Mode** (`REMOTE_SERVER_ENABLED = True`):
+   - `JavLibrary_server.py` runs as a standalone HTTP server daemon on your desktop/server machine.
+   - `JavLibrary_python.py` acts as a lightweight dispatcher forwarding incoming Stash scrape requests to the desktop server over HTTP.
+
+---
+
+## Requirements
+
+- Google Chrome, installed as `google-chrome` on the machine that runs the scraping (the local machine in Local Mode, the server machine in Client/Server Mode).
+- Python packages:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+In Client/Server Mode, the Stash machine only needs `requests`.
+
+---
+
+## Configuration (`config.ini`)
+
+Location: `scrapers/JavLibrary_python/config.ini`
+
+```ini
+# Return tags or not
+RETURN_TAGS = False
+
+# Remote Desktop Server configuration
+REMOTE_SERVER_ENABLED = False
+REMOTE_SERVER_URL = http://127.0.0.1:8000
+```
+
+- `RETURN_TAGS`: Set to `True` to include genres/tags in scraped results.
+- `REMOTE_SERVER_ENABLED`: Set to `True` to forward scrape requests to the desktop HTTP server.
+- `REMOTE_SERVER_URL`: URL of the desktop HTTP server (e.g. `http://127.0.0.1:8000`).
+
+---
+
+## Running the Desktop HTTP Server
+
+Start the desktop server using Python:
+
+```bash
+python3 JavLibrary_server.py
+```
+
+Optional CLI flags:
+- `--port PORT`: Specify custom port (e.g. `python3 JavLibrary_server.py --port 8000`).
+
+### Network notes
+
+- **Bind address comes from `REMOTE_SERVER_URL`.** The server listens on the host and port of `REMOTE_SERVER_URL` in its own `config.ini`. The same key means "listen here" on the server machine and "connect here" on the Stash machine. With the default `127.0.0.1`, only the local machine can reach it. To serve Stash on another machine, set the server machine's `REMOTE_SERVER_URL` to its LAN IP (e.g. `http://192.168.1.10:8000`) and use the same URL on the Stash side.
+- **The two machines can use different URLs.** Each machine reads its own `config.ini`, so the values don't have to be identical. This matters when the Stash side reaches the server through an address the server can't bind to, such as `host.docker.internal` from a Docker container, NAT or port forwarding, or a hostname that resolves differently on each machine. Set the server machine's `REMOTE_SERVER_URL` to its own LAN IP, and the Stash side's to whatever address reaches it. Keep the ports consistent.
+- **No authentication.** Anyone who can reach the port can call `/scrape` (which drives your Chrome) or `/clear-cache`. That's fine on a trusted home LAN; don't expose the port beyond it.
+
+---
+
+## Server API Endpoints & Manual `curl` Examples
+
+### 1. Health Check (`GET /health`)
+Verify that the desktop server is running:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+**Response:**
+```json
+{"status": "ok"}
+```
+
+---
+
+### 2. Scrape Endpoint (`POST /scrape`)
+
+#### Scrape by Filename (Default)
+```bash
+curl -X POST http://127.0.0.1:8000/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"stash_request": {"title": "some_uploader@lulu00424_2_8k_cut_1.mp4"}, "args": []}'
+```
+
+#### Scrape by Search Name / DVD Code (`searchName` argument)
+```bash
+curl -X POST http://127.0.0.1:8000/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"stash_request": {"name": "LULU-424"}, "args": ["searchName"]}'
+```
+
+---
+
+### 3. Clear Cache (`POST /clear-cache`)
+Clear cached HTTP responses:
+
+```bash
+curl -X POST http://127.0.0.1:8000/clear-cache
+```
+**Response:**
+```json
+{"status": "success", "message": "Cache cleared successfully."}
+```
+
+Or via CLI:
+```bash
+python3 JavLibrary_server.py --clear-cache
+```
+
+---
+
+## Running Unit Tests
+
+Run the test suite to verify filename parsing, clean queries, and caching:
+
+```bash
+python3 test_scraper.py
+```
+
+This includes the online cache tests (`TestOnlineCache`), which scrape the live site. They need network access, may open Chrome for a captcha, and can take several minutes. To run only the offline tests (filename parsing and details cleanup):
+
+```bash
+python3 -m unittest test_scraper.TestOfflineCleanup
+```
