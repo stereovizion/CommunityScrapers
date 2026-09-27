@@ -48,6 +48,12 @@ python3 JavLibrary_server.py
 Optional CLI flags:
 - `--port PORT`: Specify custom port (e.g. `python3 JavLibrary_server.py --port 8000`).
 
+### Network notes
+
+- **Bind address comes from `REMOTE_SERVER_URL`.** The server listens on the host and port of `REMOTE_SERVER_URL` in its own `config.ini`. The same key means "listen here" on the server machine and "connect here" on the Stash machine. With the default `127.0.0.1`, only the local machine can reach it. To serve Stash on another machine, set the server machine's `REMOTE_SERVER_URL` to its LAN IP (e.g. `http://192.168.1.10:8000`) and use the same URL on the Stash side.
+- **The two machines can use different URLs.** Each machine reads its own `config.ini`, so the values don't have to be identical. This matters when the Stash side reaches the server through an address the server can't bind to, such as `host.docker.internal` from a Docker container, NAT or port forwarding, or a hostname that resolves differently on each machine. Set the server machine's `REMOTE_SERVER_URL` to its own LAN IP, and the Stash side's to whatever address reaches it. Keep the ports consistent.
+- **No authentication.** Anyone who can reach the port can call `/scrape` (which drives your Chrome) or `/clear-cache`. That's fine on a trusted home LAN; don't expose the port beyond it.
+
 ---
 
 ## Server API Endpoints & Manual `curl` Examples
