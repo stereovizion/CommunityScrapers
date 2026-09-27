@@ -538,7 +538,7 @@ def is_cloudflare_challenge_solved(driver):
 
 def bypass_protection(url, retries=4):
     log.debug("=== Fetching JavLibrary page via Chrome Driver ===")
-    response_html = ResponseHTML
+    response_html = ResponseHTML()
     try:
         captcha_result = interactive_captcha_solve(url)
         if captcha_result:
