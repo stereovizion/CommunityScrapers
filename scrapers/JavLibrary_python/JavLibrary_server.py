@@ -67,14 +67,11 @@ except ModuleNotFoundError:
     log.debug("Selenium not available. Install it for interactive captcha solving: pip install selenium")
 
 
-COOKIES_FILE = "javlib_cookies.json"
-
 import os
 import json
 from pathlib import Path
 
-# Add this near the top with other globals
-COOKIES_FILE = "javlib_cookies.json"
+COOKIES_FILE = Path(__file__).parent / "javlib_cookies.json"
 
 def clean_query(query):
     if not query:
