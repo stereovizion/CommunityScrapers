@@ -18,6 +18,19 @@ The scraper supports two execution modes via `config.ini`:
 
 ---
 
+## Requirements
+
+- Google Chrome, installed as `google-chrome` on the machine that runs the scraping (the local machine in Local Mode, the server machine in Client/Server Mode).
+- Python packages:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+In Client/Server Mode, the Stash machine only needs `requests`.
+
+---
+
 ## Configuration (`config.ini`)
 
 Location: `scrapers/JavLibrary_python/config.ini`
