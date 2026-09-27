@@ -1,0 +1,7 @@
+lxml
+requests
+selenium
+undetected-chromedriver
+webdriver-manager
+# undetected-chromedriver imports distutils, which was removed from the stdlib in Python 3.12
+setuptools
